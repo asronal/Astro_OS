@@ -1,0 +1,9 @@
+# Buildroot generated output
+output/
+
+# Download cache
+dl/
+
+# Temporary/editor files
+*~
+*.swp
