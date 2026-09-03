@@ -1,0 +1,1 @@
+astro 1000 astro 1000 * /home/astro /bin/sh - Astro OS development user
