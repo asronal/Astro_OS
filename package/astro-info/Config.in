@@ -1,0 +1,4 @@
+config BR2_PACKAGE_ASTRO_INFO
+	bool "astro-info"
+	help
+	  Display Astro OS system information.

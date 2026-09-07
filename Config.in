@@ -1,0 +1,5 @@
+menu "Astro OS packages"
+
+source "$BR2_EXTERNAL_ASTRO_PATH/package/astro-info/Config.in"
+
+endmenu
