@@ -2,13 +2,13 @@
 
 Astro OS is an experimental embedded Linux distribution built with Buildroot, currently targeting the Raspberry Pi 4.
 
-## Current Development Release
+## Current Release
 
-**Astro OS v0.5.0**
+**Astro OS v0.7.0**
 
-v0.5.0 adds a dedicated non-root `astro` user while retaining the networking, Wi-Fi, SSH, and graphical stack developed in previous milestones.
+v0.7.0 focuses on system usability and login environment improvements while retaining the networking, SSH, graphics, and non-root user functionality developed in previous releases.
 
-> Hardware validation is still pending.
+> Hardware validation on a physical Raspberry Pi 4 is still pending.
 
 ## Features
 
@@ -60,8 +60,26 @@ v0.5.0 adds a dedicated non-root `astro` user while retaining the networking, Wi
 - Dedicated `astro` user
 - UID/GID `1000`
 - `/home/astro`
-- `/bin/sh` login shell
+- `/bin/sh`
 - Buildroot users-table support
+
+### v0.6.0 — Diagnostics
+
+- Custom `astro-info` Buildroot package
+- Astro OS system information utility
+- AArch64 target executable
+- Kernel version reporting
+- Architecture reporting
+- Hostname reporting
+
+### v0.7.0 — System Usability
+
+- Astro OS `/etc/profile`
+- Custom shell environment
+- `nano` as the default editor
+- Shell history configuration
+- Custom Astro OS MOTD
+- Version and platform information displayed in the login environment
 - Existing networking, Wi-Fi, SSH and graphics functionality retained
 
 ## Target
