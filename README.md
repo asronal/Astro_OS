@@ -4,7 +4,7 @@ Astro OS is an experimental embedded Linux distribution built with Buildroot, cu
 
 ## Current Release
 
-**Astro OS v0.8.0** (in progress)
+**Astro OS v0.8.0** (pre-release)
 
 Astro OS is becoming a self-contained field computer for astronomy and astrophotography, with a touchscreen, telescope and camera control, and offline sky data. v0.8.0 builds the base for that: an image designed to boot and be reachable on a real Raspberry Pi 4.
 
@@ -90,6 +90,7 @@ Astro OS is becoming a self-contained field computer for astronomy and astrophot
 - Separate release configuration with root login locked
 - Boot configuration that enables the GPU driver and detects DSI displays and CSI cameras
 - `/data` partition that grows to fill the boot drive on first boot
+- Booting from a USB drive, leaving any OS on the SD card untouched
 - USB-C connection to a PC: network with SSH, plus a serial console
 - Network time with `chrony`, CA certificates, filesystem tools
 - Version number generated from a single `VERSION` file
@@ -158,6 +159,8 @@ The development image `pi4_defconfig` has the root password `root`, so use it on
 3. Boot the Pi. The first boot grows `/data` to fill the drive.
 4. Log in on the HDMI or serial console (115200 baud on GPIO14/15) as `root`, or with `ssh astro@<ip-address>` if you added a key.
 
+Per-device settings such as third-party DSI displays go in `astro-hardware.txt` on the boot partition.
+
 ## Booting from USB
 
 The same `sdcard.img.xz` image works on a USB drive, which leaves any OS on the SD card untouched. Astro OS only ever writes to the drive it booted from.
@@ -181,9 +184,8 @@ Don't attach two drives flashed with this image at the same time, because both c
 The USB-C port can connect the Pi directly to a PC, with no router needed:
 
 1. Use a USB-C **data** cable, since many charging cables have no data wires.
-2. The PC sees a new network adapter and a serial port. Connect with `ssh astro@10.55.0.1`.
-3. The serial port runs at 115200 baud.
+2. The PC sees a new network adapter and a serial port.
+3. To use SSH, connect with `ssh astro@10.55.0.1`. This needs an image built with your own SSH key, so it does not work with the published release image.
+4. To use the serial port, connect at 115200 baud and log in as `root`. It starts late in boot, so it does not show early boot messages.
 
 This port also powers the Pi, and a PC port may not supply enough, especially with a camera or other USB devices attached. If you see undervoltage warnings in `dmesg`, use a powered USB hub between the PC and the Pi, or power the Pi through the GPIO header with a regulated 5V supply.
-
-Per-device settings such as third-party DSI displays go in `astro-hardware.txt` on the boot partition.
