@@ -193,6 +193,13 @@ int main(int argc, char *argv[])
     mount.unpark();
     report("Unparks", wait_for([&]() { return !mount.parked(); }, kSlewTimeoutMs));
 
+    // A program started while the mount is connected must notice: the touch app
+    // after a restart, or the astro_sky shell running beside it
+    {
+        MountClient second(&sky, config.path() + QStringLiteral("/astro-hub-second.conf"));
+        report("A second program sees the connected mount", wait_for([&]() { return second.mountConnected(); }, kConnectTimeoutMs));
+    }
+
         std::printf("\n%d failure(s)\n", failures);
     return failures ? 1 : 0;
 }

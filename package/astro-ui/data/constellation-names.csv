@@ -1,0 +1,90 @@
+con,name,ra_deg,dec_deg
+And,Andromeda,0.750,43.000
+Ant,Antlia,156.000,-36.000
+Aps,Apus,240.000,-74.000
+Aqr,Aquarius,337.500,-5.000
+Aql,Aquila,291.000,8.000
+Ara,Ara,258.000,-56.000
+Ari,Aries,42.000,22.000
+Aur,Auriga,82.500,37.000
+Boo,Boötes,223.500,35.000
+Cae,Caelum,73.500,-42.000
+Cam,Camelopardalis,84.000,72.000
+Cnc,Cancer,128.250,27.000
+CVn,Canes Venatici,192.000,43.000
+CMa,Canis Major,97.500,-26.000
+CMi,Canis Minor,109.500,5.000
+Cap,Capricornus,315.000,-22.000
+Car,Carina,144.000,-66.000
+Cas,Cassiopeia,354.000,55.500
+Cen,Centaurus,199.500,-40.000
+Cep,Cepheus,337.500,71.000
+Cet,Cetus,28.500,-5.000
+Cha,Chamaeleon,189.000,-81.000
+Cir,Circinus,217.500,-67.000
+Col,Columba,85.500,-39.000
+Com,Coma Berenices,193.500,24.000
+CrA,Corona Austrina,282.000,-40.000
+CrB,Corona Borealis,238.500,32.000
+Crv,Corvus,186.000,-19.500
+Crt,Crater,174.750,-15.000
+Cru,Crux,193.500,-62.000
+Cyg,Cygnus,307.500,50.000
+Del,Delphinus,309.000,6.000
+Dor,Dorado,76.500,-64.000
+Dra,Draco,268.500,64.000
+Equ,Equuleus,320.250,11.500
+Eri,Eridanus,52.500,-18.000
+For,Fornax,40.500,-28.000
+Gem,Gemini,107.250,23.500
+Gru,Grus,342.000,-41.500
+Her,Hercules,253.500,35.000
+Hor,Horologium,51.000,-52.000
+Hya,Hydra,150.000,-22.000
+Hyi,Hydrus,34.500,-72.000
+Ind,Indus,318.000,-55.500
+Lac,Lacerta,342.000,47.000
+Leo,Leo,159.000,15.000
+LMi,Leo Minor,157.500,30.000
+Lep,Lepus,88.500,-25.000
+Lib,Libra,231.000,-26.000
+Lup,Lupus,228.750,-35.000
+Lyn,Lynx,121.500,49.000
+Lyr,Lyra,279.000,30.000
+Men,Mensa,82.500,-80.000
+Mic,Microscopium,316.500,-37.000
+Mon,Monoceros,114.750,-6.000
+Mus,Musca,195.000,-73.000
+Nor,Norma,243.000,-52.000
+Oct,Octans,300.000,-80.000
+Oph,Ophiuchus,258.000,3.000
+Ori,Orion,84.000,13.000
+Pav,Pavo,297.000,-62.000
+Peg,Pegasus,334.500,16.000
+Per,Perseus,66.000,45.000
+Phe,Phoenix,16.500,-43.000
+Pic,Pictor,82.500,-50.000
+Psc,Pisces,19.500,15.000
+PsA,Piscis Austrinus,333.000,-29.000
+Pup,Puppis,111.000,-46.000
+Pyx,Pyxis,132.000,-24.000
+Ret,Reticulum,55.500,-61.000
+Sge,Sagitta,291.000,18.000
+Sgr,Sagittarius,292.500,-34.000
+Sco,Scorpius,249.000,-38.000
+Scl,Sculptor,1.500,-33.000
+Sct,Scutum,282.000,-12.500
+Ser,Serpens Caput,232.500,5.000
+Ser,Serpens Cauda,280.500,3.000
+Sex,Sextans,157.500,-7.000
+Tau,Taurus,54.000,15.000
+Tel,Telescopium,277.500,-54.000
+Tri,Triangulum,27.000,34.000
+TrA,Triangulum Australe,240.000,-67.500
+Tuc,Tucana,348.000,-64.000
+UMa,Ursa Major,165.000,48.000
+UMi,Ursa Minor,226.500,68.000
+Vel,Vela,143.250,-46.000
+Vir,Virgo,199.500,-4.000
+Vol,Volans,111.000,-73.000
+Vul,Vulpecula,295.500,21.000

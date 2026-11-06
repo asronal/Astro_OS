@@ -97,6 +97,11 @@ const GotoLimits kDefaultGotoLimits = {15.0, 0.0};
 GotoVerdict check_goto(double ra_deg, double dec_deg, const Observer& observer, double jd,
                        const GotoLimits& limits, bool solar_filter_fitted);
 
+// A Raspberry Pi has no battery-backed clock, so it can start up decades out until
+// the network or the user sets the time. The Sun's position depends on the date,
+// so the Sun check above means nothing until this returns true.
+bool clock_looks_set(double jd);
+
 } // namespace astro
 
 #endif

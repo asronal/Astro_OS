@@ -165,6 +165,11 @@ static void test_goto_safety()
     check_verdict("A filter does not allow GoTo below the horizon",
                   check_goto(std::fmod(sun.ra_deg + 180.0, 360.0), -sun.dec_deg, kGreenwich, jd, limits, true),
                   GotoVerdict::BelowHorizon);
+
+    // A Pi that hasn't set its clock yet starts at about 1970
+    check("A clock in 1970 doesn't look set", clock_looks_set(julian_from_utc(1970, 1, 1, 0, 0, 0.0)) ? 1.0 : 0.0, 0.5);
+    check("A clock in late 2025 doesn't look set", clock_looks_set(julian_from_utc(2025, 12, 31, 23, 0, 0.0)) ? 1.0 : 0.0, 0.5);
+    check("A clock in 2026 looks set", clock_looks_set(julian_from_utc(2026, 1, 1, 1, 0, 0.0)) ? 0.0 : 1.0, 0.5);
 }
 
 int main(int argc, char *argv[])

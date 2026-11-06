@@ -10,10 +10,13 @@ find_library(ASTRO_CORE_LIBRARY astro-core REQUIRED)
 find_library(NOVA_LIBRARY nova REQUIRED)
 find_library(INDICLIENT_LIBRARY indiclient REQUIRED)
 find_path(INDI_INCLUDE_DIR libindi/baseclient.h REQUIRED)
+find_library(TCL_LIBRARY NAMES tcl8.6 tcl REQUIRED)
+find_library(READLINE_LIBRARY readline REQUIRED)
 
 qt_add_executable(astro-ui
     src/main.cpp
     src/catalog.cpp
+    src/auto_detect.cpp
     src/sky_backend.cpp
     src/sky_chart.cpp
     src/mount_client.cpp
@@ -45,20 +48,41 @@ target_link_libraries(astro-ui PRIVATE
     ${ASTRO_CORE_LIBRARY} ${NOVA_LIBRARY} ${INDICLIENT_LIBRARY}
 )
 
-install(TARGETS astro-ui RUNTIME DESTINATION bin)
-install(FILES data/stars.csv data/deepsky.csv data/ATTRIBUTION data/fonts/OFL-IBMPlex.txt data/fonts/OFL-SpaceGrotesk.txt DESTINATION share/astro)
+# The interactive shell. It shares the settings and safety checks, but needs no display.
+qt_add_executable(astro_sky
+    src/astro_sky_shell.cpp
+    src/catalog.cpp
+    src/auto_detect.cpp
+    src/sky_backend.cpp
+    src/mount_client.cpp
+)
+target_include_directories(astro_sky PRIVATE ${INDI_INCLUDE_DIR}/libindi)
+target_link_libraries(astro_sky PRIVATE
+    Qt6::Core Qt6::Network
+    ${ASTRO_CORE_LIBRARY} ${NOVA_LIBRARY} ${INDICLIENT_LIBRARY} ${TCL_LIBRARY} ${READLINE_LIBRARY}
+)
+
+install(TARGETS astro-ui astro_sky RUNTIME DESTINATION bin)
+install(FILES data/stars.csv data/stars-faint.bin data/deepsky.csv data/constellations.csv data/constellation-names.csv data/milkyway.png data/moon-map.jpg data/ATTRIBUTION data/fonts/OFL-IBMPlex.txt data/fonts/OFL-SpaceGrotesk.txt DESTINATION share/astro)
 
 # Tests that run the real code against INDI's simulators. See tools/try-app.sh
 option(ASTRO_UI_BUILD_TESTS "Build tests" OFF)
 if(ASTRO_UI_BUILD_TESTS)
-    qt_add_executable(mount_e2e tests/mount_e2e.cpp src/catalog.cpp src/sky_backend.cpp src/mount_client.cpp)
-    target_include_directories(mount_e2e PRIVATE src ${INDI_INCLUDE_DIR}/libindi)
-    target_link_libraries(mount_e2e PRIVATE Qt6::Core ${ASTRO_CORE_LIBRARY} ${NOVA_LIBRARY} ${INDICLIENT_LIBRARY})
+    add_executable(test_chart_math tests/test_chart_math.cpp)
+    target_include_directories(test_chart_math PRIVATE src)
 
-    qt_add_executable(ui_screens tests/ui_screens.cpp src/catalog.cpp src/sky_backend.cpp src/sky_chart.cpp src/mount_client.cpp)
+    qt_add_executable(test_auto_detect tests/test_auto_detect.cpp src/auto_detect.cpp)
+    target_include_directories(test_auto_detect PRIVATE src)
+    target_link_libraries(test_auto_detect PRIVATE Qt6::Core)
+
+    qt_add_executable(mount_e2e tests/mount_e2e.cpp src/catalog.cpp src/auto_detect.cpp src/sky_backend.cpp src/mount_client.cpp)
+    target_include_directories(mount_e2e PRIVATE src ${INDI_INCLUDE_DIR}/libindi)
+    target_link_libraries(mount_e2e PRIVATE Qt6::Core Qt6::Network ${ASTRO_CORE_LIBRARY} ${NOVA_LIBRARY} ${INDICLIENT_LIBRARY})
+
+    qt_add_executable(ui_screens tests/ui_screens.cpp src/catalog.cpp src/auto_detect.cpp src/sky_backend.cpp src/sky_chart.cpp src/mount_client.cpp)
     qt_add_resources(ui_screens "qml" PREFIX "/" FILES
         qml/Main.qml qml/AText.qml qml/AstroButton.qml qml/Card.qml qml/Glyph.qml qml/Logo.qml qml/MoonDisc.qml qml/PolarDial.qml qml/TonightPage.qml qml/SkyPage.qml qml/MountPage.qml qml/ToolsPage.qml qml/SettingsPage.qml data/fonts/IBMPlexSans.ttf data/fonts/IBMPlexMono-Regular.ttf data/fonts/IBMPlexMono-Medium.ttf data/fonts/SpaceGrotesk.ttf)
     target_include_directories(ui_screens PRIVATE src ${INDI_INCLUDE_DIR}/libindi)
-    target_link_libraries(ui_screens PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick
+    target_link_libraries(ui_screens PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml Qt6::Quick
         ${ASTRO_CORE_LIBRARY} ${NOVA_LIBRARY} ${INDICLIENT_LIBRARY})
 endif()

@@ -71,6 +71,14 @@ Canvas {
             c.arc(10.5, 10.5, 6, 0, Math.PI * 2)
             c.moveTo(15, 15); c.lineTo(20.5, 20.5)
             c.stroke()
+        } else if (name === "layers") {
+            c.moveTo(12, 4); c.lineTo(21, 9); c.lineTo(12, 14); c.lineTo(3, 9); c.closePath()
+            c.moveTo(3, 13.5); c.lineTo(12, 18.5); c.lineTo(21, 13.5)
+            c.stroke()
+        } else if (name === "close") {
+            c.moveTo(6, 6); c.lineTo(18, 18)
+            c.moveTo(18, 6); c.lineTo(6, 18)
+            c.stroke()
         } else if (name === "stop") {
             c.moveTo(7, 7); c.lineTo(17, 7); c.lineTo(17, 17); c.lineTo(7, 17); c.closePath()
             c.fill()

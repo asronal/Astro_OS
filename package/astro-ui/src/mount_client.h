@@ -78,6 +78,7 @@ protected:
     void serverDisconnected(int exit_code) override;
 
 private:
+    void handle_property(INDI::Property property);
     void read_property(INDI::Property property);
     void send_location_and_time();
     void try_connect_to_server();

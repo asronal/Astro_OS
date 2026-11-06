@@ -393,4 +393,10 @@ GotoVerdict check_goto(double ra_deg, double dec_deg, const Observer& observer, 
     return GotoVerdict::Allowed;
 }
 
+bool clock_looks_set(double jd)
+{
+    // 2026-01-01, before any Astro OS image with this check was built
+    return jd >= 2461041.5;
+}
+
 } // namespace astro

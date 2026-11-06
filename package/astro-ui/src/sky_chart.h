@@ -1,14 +1,24 @@
 #ifndef ASTRO_UI_SKY_CHART_H
 #define ASTRO_UI_SKY_CHART_H
 
+#include <QBrush>
+#include <QImage>
 #include <QPointF>
 #include <QQuickPaintedItem>
+#include <QRectF>
 #include <QVariant>
+#include <QVector>
 
+#include <vector>
+
+#include "chart_math.h"
 #include "sky_backend.h"
 
-// A touchable chart of the sky above the observer, drawn with a stereographic
-// projection so that shapes stay recognisable near the edge of the view
+// A touchable chart of the sky above the observer.
+//
+// It is drawn in layers, from the back: the sky's colour and the Milky Way, then
+// stars, constellations, deep-sky objects and planets, then the landscape, which
+// hides anything below the horizon, and finally labels and markers.
 class SkyChart : public QQuickPaintedItem {
     Q_OBJECT
     Q_PROPERTY(SkyBackend* backend READ backend WRITE setBackend NOTIFY viewChanged)
@@ -20,6 +30,14 @@ class SkyChart : public QQuickPaintedItem {
     Q_PROPERTY(bool mountVisible READ mountVisible WRITE setMountVisible NOTIFY viewChanged)
     Q_PROPERTY(double mountRa READ mountRa WRITE setMountRa NOTIFY viewChanged)
     Q_PROPERTY(double mountDec READ mountDec WRITE setMountDec NOTIFY viewChanged)
+    Q_PROPERTY(bool showConstellations READ showConstellations WRITE setShowConstellations NOTIFY viewChanged)
+    Q_PROPERTY(bool showMilkyWay READ showMilkyWay WRITE setShowMilkyWay NOTIFY viewChanged)
+    Q_PROPERTY(bool showLandscape READ showLandscape WRITE setShowLandscape NOTIFY viewChanged)
+    Q_PROPERTY(bool showAtmosphere READ showAtmosphere WRITE setShowAtmosphere NOTIFY viewChanged)
+    // Labels stay out of these strips, where the header and navigation sit on top
+    Q_PROPERTY(double safeTop READ safeTop WRITE setSafeTop NOTIFY viewChanged)
+    Q_PROPERTY(double safeBottom READ safeBottom WRITE setSafeBottom NOTIFY viewChanged)
+    Q_PROPERTY(double timeOffsetHours READ timeOffsetHours WRITE setTimeOffsetHours NOTIFY viewChanged)
 
 public:
     explicit SkyChart(QQuickItem* parent = nullptr);
@@ -42,6 +60,21 @@ public:
     void setMountRa(double ra);
     double mountDec() const { return m_mount_dec; }
     void setMountDec(double dec);
+    bool showConstellations() const { return m_show_constellations; }
+    void setShowConstellations(bool show);
+    bool showMilkyWay() const { return m_show_milky_way; }
+    void setShowMilkyWay(bool show);
+    bool showLandscape() const { return m_show_landscape; }
+    void setShowLandscape(bool show);
+    bool showAtmosphere() const { return m_show_atmosphere; }
+    void setShowAtmosphere(bool show);
+    double safeTop() const { return m_safe_top; }
+    void setSafeTop(double pixels);
+    double safeBottom() const { return m_safe_bottom; }
+    void setSafeBottom(double pixels);
+    // Only moves what the chart shows. GoTo and its safety checks use the real time.
+    double timeOffsetHours() const { return m_time_offset_hours; }
+    void setTimeOffsetHours(double hours);
 
     void paint(QPainter* painter) override;
 
@@ -53,10 +86,37 @@ signals:
     void viewChanged();
 
 private:
-    bool project(double az, double alt, QPointF* point) const;
-    void draw_ground(QPainter* painter, const QColor& color, const QColor& line) const;
-    void draw_grid(QPainter* painter, const QColor& color) const;
-    void equatorial_to_screen_inputs(double* lst_rad, double* sin_lat, double* cos_lat) const;
+    // Keeps labels from landing on top of one another
+    class LabelPlacer;
+
+    chart::View view() const;
+    chart::Site site() const;
+    double julian_date() const;
+    double star_limit() const { return m_frame_star_limit; }
+    double daylight() const { return m_frame_daylight; }
+    double moon_light() const { return m_frame_moon_light; }
+    void prepare_frame(const chart::Site& site);
+    double ridge_height(const std::vector<double>& ridge, double az) const;
+    void refresh_bodies();
+    void build_star_sprites();
+    QRgb sky_colour(double az, double alt, double ra, double dec, double sun_az, double sun_alt) const;
+    double milky_way_at(double ra, double dec) const;
+
+    void draw_sky(QPainter* painter, const chart::View& view, const chart::Site& site);
+    void draw_stars(QPainter* painter, const chart::View& view, const chart::Site& site);
+    void draw_star(QPainter* painter, const chart::View& view, const chart::Site& site, double ra, double dec,
+                   double mag, float colour_index, double limit);
+    void draw_constellation_lines(QPainter* painter, const chart::View& view, const chart::Site& site) const;
+    void draw_deep_sky(QPainter* painter, const chart::View& view, const chart::Site& site) const;
+    void draw_bodies(QPainter* painter, const chart::View& view, const chart::Site& site);
+    void draw_object(QPainter* painter, const chart::View& view, const chart::Site& site, const CatalogObject& object,
+                     QPointF center) const;
+    void draw_moon(QPainter* painter, const chart::View& view, const chart::Site& site, QPointF center, double radius);
+    void draw_ridge(QPainter* painter, const chart::View& view, const std::vector<double>& ridge,
+                    const QBrush& fill, const QColor& rim) const;
+    void draw_landscape(QPainter* painter, const chart::View& view) const;
+    void draw_labels(QPainter* painter, const chart::View& view, const chart::Site& site) const;
+    void draw_markers(QPainter* painter, const chart::View& view, const chart::Site& site) const;
 
     SkyBackend* m_sky;
     double m_center_az;
@@ -67,6 +127,40 @@ private:
     bool m_mount_visible;
     double m_mount_ra;
     double m_mount_dec;
+    bool m_show_constellations;
+    bool m_show_milky_way;
+    bool m_show_landscape;
+    bool m_show_atmosphere;
+    double m_safe_top;
+    double m_safe_bottom;
+    double m_time_offset_hours;
+
+    // Working out a planet's position is slow, so only one is updated per frame
+    std::vector<astro::BodyReport> m_bodies;
+
+    // Worked out once per frame, as the sky's colour needs them for every pixel
+    double m_frame_star_limit;
+    double m_frame_daylight;
+    double m_frame_moon_light;
+
+    std::size_t m_next_body;
+    qint64 m_last_body_update_ms;
+
+    // The sky's colour is worked out for a coarse grid of directions, and only
+    // again once the view or the time has moved. Scaling it up also softens it.
+    QImage m_sky_image;
+    QImage m_milky_way;
+    double m_sky_key[6];
+
+    // Drawing stars from small pre-rendered images is far quicker than drawing
+    // each one with antialiasing
+    QVector<QImage> m_star_sprites;
+    bool m_sprites_for_night;
+
+    QImage m_moon_map;
+
+    std::vector<double> m_ridge_far;
+    std::vector<double> m_ridge_near;
 };
 
 #endif

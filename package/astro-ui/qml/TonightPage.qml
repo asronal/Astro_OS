@@ -82,10 +82,9 @@ Item {
                     spacing: 2
 
                     AText {
-                        text: "DARK SKY"
+                        text: "Dark sky"
                         color: theme.accent
-                        font.pixelSize: 10
-                        font.letterSpacing: 1.8
+                        font.pixelSize: 12
                         weight: 600
                     }
                     AText {
@@ -127,10 +126,9 @@ Item {
             spacing: 8
 
             AText {
-                text: page.targets.length > 0 ? "BEST TONIGHT" : "NOTHING HIGH TONIGHT"
+                text: page.targets.length > 0 ? "Best tonight" : "Nothing high tonight"
                 color: theme.accent
-                font.pixelSize: 10
-                font.letterSpacing: 1.8
+                font.pixelSize: 12
                 weight: 600
             }
 
@@ -193,8 +191,7 @@ Item {
                                 horizontalAlignment: modelData[0] === "" ? Text.AlignLeft : Text.AlignRight
                                 text: modelData[0]
                                 color: theme.dim
-                                font.pixelSize: 10
-                                font.letterSpacing: 1.1
+                                font.pixelSize: 12
                                 weight: 600
                             }
                         }

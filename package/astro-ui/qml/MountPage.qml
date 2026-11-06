@@ -54,10 +54,9 @@ Item {
                     spacing: 8
 
                     AText {
-                        text: "MOUNT"
+                        text: "Mount"
                         color: theme.accent
-                        font.pixelSize: 10
-                        font.letterSpacing: 1.8
+                        font.pixelSize: 12
                         weight: 600
                     }
                     RowLayout {
@@ -65,8 +64,8 @@ Item {
                         spacing: 6
                         AstroButton {
                             glyph: "left"
-                            implicitWidth: 42
-                            implicitHeight: 40
+                            implicitWidth: 46
+                            implicitHeight: 44
                             onClicked: page.driverIndex = (page.driverIndex + mount.drivers.length - 1) % mount.drivers.length
                         }
                         AText {
@@ -79,8 +78,8 @@ Item {
                         }
                         AstroButton {
                             glyph: "right"
-                            implicitWidth: 42
-                            implicitHeight: 40
+                            implicitWidth: 46
+                            implicitHeight: 44
                             onClicked: page.driverIndex = (page.driverIndex + 1) % mount.drivers.length
                         }
                     }
@@ -129,13 +128,13 @@ Item {
                         }
                         AstroButton {
                             text: "Apply"
-                            implicitHeight: 40
+                            implicitHeight: 44
                             onClicked: mount.applyProfile(page.selectedDriver.binary, portBox.text, mount.remoteAccess)
                         }
                         AstroButton {
                             text: mount.mountConnected ? "Disconnect" : "Connect"
                             style: mount.mountConnected ? "plain" : "primary"
-                            implicitHeight: 40
+                            implicitHeight: 44
                             enabled: mount.mountFound
                             onClicked: mount.mountConnected ? mount.disconnectMount() : mount.connectMount()
                         }
@@ -153,10 +152,9 @@ Item {
                     spacing: 2
 
                     AText {
-                        text: "POINTING AT"
+                        text: "Pointing at"
                         color: theme.accent
-                        font.pixelSize: 10
-                        font.letterSpacing: 1.8
+                        font.pixelSize: 12
                         weight: 600
                     }
                     AText {
@@ -218,10 +216,9 @@ Item {
                 spacing: 10
 
                 AText {
-                    text: "MOVE"
+                    text: "Move"
                     color: theme.accent
-                    font.pixelSize: 10
-                    font.letterSpacing: 1.8
+                    font.pixelSize: 12
                     weight: 600
                 }
 

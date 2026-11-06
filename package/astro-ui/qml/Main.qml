@@ -9,6 +9,12 @@ Window {
     property var target: ({})
     property bool solarFilterFitted: false
     property int page: sky.locationSet ? 0 : 4
+    readonly property bool skyPage: page === 1
+    // Tapping empty sky hides the navigation, for an uninterrupted view
+    property bool skyFullView: false
+    readonly property bool navigationShown: !keyboard.active && !(skyPage && skyFullView)
+    readonly property int headerHeight: 52
+    readonly property int navigationHeight: navigationShown ? 58 : 0
 
     function selectTarget(object) {
         target = object
@@ -40,13 +46,16 @@ Window {
         readonly property color surfaceHigh: night ? "#1a0404" : "#171e36"
         readonly property color line: night ? "#3c0b08" : "#262f4b"
         readonly property color text: night ? "#e23a2c" : "#eef1f8"
-        readonly property color dim: night ? "#9a281e" : "#8e99b3"
-        readonly property color accent: night ? "#b92518" : "#e9b872"
-        readonly property color accentHigh: night ? "#d42e1f" : "#f3cb90"
+        readonly property color dim: night ? "#c2382a" : "#8e99b3"
+        readonly property color accent: night ? "#d02c1c" : "#e9b872"
+        readonly property color accentHigh: night ? "#e83726" : "#f3cb90"
         readonly property color accentInk: night ? "#ffd5cf" : "#17110a"
         readonly property color danger: night ? "#e01f12" : "#e5484d"
         readonly property color dangerHigh: night ? "#ff3323" : "#f2666a"
         readonly property color dangerInk: night ? "#ffe0dc" : "#ffffff"
+        // Darker than the text colours, so that a button's label stands out on it
+        readonly property color dangerFill: night ? "#b8180c" : "#cf3036"
+        readonly property color dangerFillHigh: night ? "#d42014" : "#e0474c"
         readonly property color good: night ? "#c9301f" : "#76c4ba"
         readonly property color moonLit: night ? "#c9301f" : "#e8e4d8"
         readonly property color moonDark: night ? "#1a0404" : "#1b2138"
@@ -65,77 +74,103 @@ Window {
         anchors.bottomMargin: keyboard.active ? keyboard.height : 0
         spacing: 0
 
-        // Header
-        RowLayout {
+        // Header. On the Sky page the chart continues underneath it.
+        Item {
             Layout.fillWidth: true
             Layout.fillHeight: false
-            Layout.preferredHeight: 52
-            Layout.leftMargin: 14
-            Layout.rightMargin: 10
-            spacing: 10
-
-            Logo { size: 30 }
-            AText {
-                text: "ASTRO"
-                style: "display"
-                weight: 600
-                font.pixelSize: 17
-                font.letterSpacing: 3.2
-            }
+            Layout.preferredHeight: root.headerHeight
+            z: 2
 
             Rectangle {
-                Layout.leftMargin: 6
-                Layout.preferredHeight: 26
-                Layout.preferredWidth: statusRow.implicitWidth + 20
-                radius: 13
-                color: theme.surface
-                border.color: theme.line
-                Row {
-                    id: statusRow
-                    anchors.centerIn: parent
-                    spacing: 7
-                    Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 7; height: 7; radius: 4
-                        color: mount.mountConnected ? (mount.slewing ? theme.accent : theme.good) : theme.dim
-                    }
-                    AText {
-                        text: !mount.mountConnected ? "No mount"
-                            : mount.slewing ? "Slewing"
-                            : mount.tracking ? "Tracking" : "Mount ready"
-                        color: theme.dim
-                        font.pixelSize: 12
-                        weight: 500
-                    }
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                height: parent.height + 18
+                visible: root.skyPage
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Qt.rgba(theme.background.r, theme.background.g, theme.background.b, 0.82) }
+                    GradientStop { position: 1.0; color: Qt.rgba(theme.background.r, theme.background.g, theme.background.b, 0.0) }
                 }
             }
 
-            Item { Layout.fillWidth: true }
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 14
+                anchors.rightMargin: 10
+                spacing: 10
 
-            AText {
-                text: sky.clockText
-                style: "data"
-                font.pixelSize: 19
-            }
-            AstroButton {
-                glyph: "eye"
-                style: "quiet"
-                active: sky.nightMode
-                implicitWidth: 42
-                implicitHeight: 38
-                onClicked: sky.nightMode = !sky.nightMode
-            }
-            AstroButton {
-                glyph: "stop"
-                text: "STOP"
-                style: "danger"
-                implicitHeight: 38
-                implicitWidth: 92
-                onClicked: mount.abort()
+                Logo { size: 30 }
+                AText {
+                    visible: !root.skyPage
+                    text: "ASTRO"
+                    style: "display"
+                    weight: 600
+                    font.pixelSize: 17
+                    font.letterSpacing: 3.2
+                }
+
+                Rectangle {
+                    Layout.leftMargin: 6
+                    Layout.preferredHeight: 26
+                    Layout.preferredWidth: statusRow.implicitWidth + 20
+                    radius: 13
+                    color: theme.surface
+                    border.color: theme.line
+                    // Goes straight to where the clock can be set
+                    MouseArea {
+                        anchors.fill: parent
+                        enabled: !sky.clockSet
+                        onClicked: root.page = 4
+                    }
+                    Row {
+                        id: statusRow
+                        anchors.centerIn: parent
+                        spacing: 7
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 7; height: 7; radius: 4
+                            color: !sky.clockSet ? theme.danger : mount.mountConnected ? (mount.slewing ? theme.accent : theme.good) : theme.dim
+                        }
+                        AText {
+                            text: !sky.clockSet ? "Clock not set"
+                                : !mount.mountConnected ? "No mount"
+                                : mount.slewing ? "Slewing"
+                                : mount.tracking ? "Tracking" : "Mount ready"
+                            color: theme.dim
+                            font.pixelSize: 12
+                            weight: 500
+                        }
+                    }
+                }
+
+
+                Item { Layout.fillWidth: true }
+
+                AText {
+                    text: sky.clockText
+                    style: "data"
+                    font.pixelSize: 19
+                }
+                AstroButton {
+                    glyph: "eye"
+                    style: "quiet"
+                    active: sky.nightMode
+                    implicitWidth: 46
+                    implicitHeight: 44
+                    onClicked: sky.nightMode = !sky.nightMode
+                }
+                AstroButton {
+                    glyph: "stop"
+                    text: "STOP"
+                    style: "danger"
+                    implicitHeight: 44
+                    implicitWidth: 104
+                    onClicked: mount.abort()
+                }
             }
         }
 
-        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: theme.line }
+        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: theme.line; visible: !root.skyPage }
 
         StackLayout {
             Layout.fillWidth: true
@@ -149,11 +184,12 @@ Window {
             SettingsPage { }
         }
 
-        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: theme.line; visible: !keyboard.active }
+        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: theme.line; visible: root.navigationShown && !root.skyPage }
 
         // Navigation
         RowLayout {
-            visible: !keyboard.active
+            visible: root.navigationShown
+            z: 2
             Layout.fillWidth: true
             Layout.fillHeight: false
             Layout.preferredHeight: 58
@@ -167,8 +203,9 @@ Window {
                     { label: "Tools", glyph: "tools" },
                     { label: "Settings", glyph: "settings" }
                 ]
-                delegate: Item {
+                delegate: Rectangle {
                     id: tab
+                    color: root.skyPage ? Qt.rgba(theme.background.r, theme.background.g, theme.background.b, 0.88) : "transparent"
                     required property int index
                     required property var modelData
                     readonly property bool current: root.page === index
@@ -196,7 +233,7 @@ Window {
                         AText {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: tab.modelData.label
-                            font.pixelSize: 11
+                            font.pixelSize: 12
                             weight: tab.current ? 600 : 400
                             color: tab.current ? theme.accent : theme.dim
                         }

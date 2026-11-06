@@ -20,6 +20,7 @@ int main(int argc, char *argv[])
 
     SkyBackend sky(config_dir + QStringLiteral("/astro-ui.ini"), catalog_dir);
     MountClient mount(&sky, config_dir + QStringLiteral("/astro-hub.conf"));
+    sky.startAutoDetect();
 
     qmlRegisterType<SkyChart>("Astro", 1, 0, "SkyChart");
     qmlRegisterUncreatableType<SkyBackend>("Astro", 1, 0, "SkyBackend", QStringLiteral("Use the sky object"));

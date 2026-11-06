@@ -12,7 +12,7 @@ Item {
         AText { text: label; color: theme.dim; font.pixelSize: 11 }
         Rectangle {
             Layout.fillWidth: true
-            height: 38
+            height: 42
             radius: 8
             color: theme.background
             border.color: input.activeFocus ? theme.accent : theme.line
@@ -31,8 +31,7 @@ Item {
 
     component Heading: AText {
         color: theme.accent
-        font.pixelSize: 10
-        font.letterSpacing: 1.8
+        font.pixelSize: 12
         weight: 600
     }
 
@@ -85,7 +84,7 @@ Item {
                     anchors.margins: 11
                     spacing: 7
 
-                    Heading { text: "LOCATION" }
+                    Heading { text: "Location" }
                     GridLayout {
                         Layout.fillWidth: true
                         columns: 2
@@ -104,6 +103,17 @@ Item {
                         color: theme.danger
                         font.pixelSize: 12
                         text: ""
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                    AstroButton {
+                        text: sky.detecting ? "Finding..." : "Find my location"
+                        enabled: !sky.detecting
+                        onClicked: {
+                            problem.text = ""
+                            sky.detectLocation()
+                        }
                     }
                     AstroButton {
                         Layout.fillWidth: true
@@ -124,6 +134,15 @@ Item {
                             root.page = 0
                         }
                     }
+                    }
+                    AText {
+                        visible: text.length > 0
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: theme.dim
+                        font.pixelSize: 12
+                        text: sky.detectStatus
+                    }
                 }
             }
 
@@ -135,6 +154,47 @@ Item {
 
                 Card {
                     Layout.fillWidth: true
+                    Layout.preferredHeight: clockColumn.implicitHeight + 22
+                    ColumnLayout {
+                        id: clockColumn
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.margins: 11
+                        spacing: 7
+                        Heading { text: "Clock" }
+                        AText {
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            color: sky.clockSet ? theme.text : theme.danger
+                            font.pixelSize: 13
+                            text: sky.clockStatus
+                        }
+                        RowLayout {
+                            visible: !sky.clockSynced
+                            Layout.fillWidth: true
+                            spacing: 8
+                            Field { id: clockField; label: "Date and time, UTC (YYYY-MM-DD HH:MM)" }
+                            AstroButton {
+                                Layout.alignment: Qt.AlignBottom
+                                text: "Set"
+                                onClicked: clockProblem.text = sky.setClockUtc(clockField.text)
+                            }
+                        }
+                        AText {
+                            id: clockProblem
+                            visible: text.length > 0
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            color: theme.danger
+                            font.pixelSize: 12
+                            text: ""
+                        }
+                    }
+                }
+
+                Card {
+                    Layout.fillWidth: true
                     Layout.preferredHeight: display.implicitHeight + 22
                     ColumnLayout {
                         id: display
@@ -143,7 +203,7 @@ Item {
                         anchors.top: parent.top
                         anchors.margins: 11
                         spacing: 7
-                        Heading { text: "DISPLAY" }
+                        Heading { text: "Display" }
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 6
@@ -159,7 +219,7 @@ Item {
                                 delegate: AstroButton {
                                     required property int modelData
                                     Layout.fillWidth: true
-                                    implicitHeight: 38
+                                    implicitHeight: 44
                                     text: modelData + "%"
                                     active: sky.brightness === modelData
                                     onClicked: sky.brightness = modelData
@@ -179,7 +239,7 @@ Item {
                         anchors.top: parent.top
                         anchors.margins: 11
                         spacing: 6
-                        Heading { text: "SOLAR FILTER" }
+                        Heading { text: "Solar filter" }
                         AText {
                             Layout.fillWidth: true
                             wrapMode: Text.WordWrap
@@ -211,7 +271,7 @@ Item {
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 3
-                        Heading { text: "LAPTOP CONTROL" }
+                        Heading { text: "Laptop control" }
                         AText {
                             Layout.fillWidth: true
                             wrapMode: Text.WordWrap

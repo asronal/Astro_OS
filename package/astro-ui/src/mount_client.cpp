@@ -38,6 +38,9 @@ MountClient::MountClient(SkyBackend* sky, const QString& hub_config_path, QObjec
     setServer("localhost", kServerPort);
     setConnectionTimeout(1, 0);
 
+    // A mount needs the right time and place to know where it's really pointing
+    connect(m_sky, &SkyBackend::observingSiteChanged, this, &MountClient::send_location_and_time);
+
     connect(&m_reconnect_timer, &QTimer::timeout, this, &MountClient::try_connect_to_server);
     m_reconnect_timer.start(kReconnectMs);
     try_connect_to_server();
@@ -199,19 +202,32 @@ void MountClient::newProperty(INDI::Property property)
                 m_qt_device = name;
                 emit stateChanged();
             }, Qt::QueuedConnection);
+
+            // Some properties arrive before this one, and were ignored because the
+            // telescope wasn't known yet. That includes CONNECTION, so without this
+            // a program starting while the mount is connected would never notice.
+            for (INDI::Property known : device.getProperties())
+                handle_property(known);
+            return;
         }
     }
+    handle_property(property);
+}
 
+void MountClient::handle_property(INDI::Property property)
+{
     std::string name = device_name();
-    if (!name.empty() && property.isNameMatch("DEVICE_PORT") && property.getBaseDevice().isDeviceNameMatch(name)) {
+    bool ours = !name.empty() && property.getBaseDevice().isDeviceNameMatch(name);
+
+    // The port can't change on a mount that's already connected
+    if (ours && property.isNameMatch("DEVICE_PORT") && !property.getBaseDevice().isConnected()) {
         QByteArray port = m_port.toUtf8();
         sendNewText(name.c_str(), "DEVICE_PORT", "PORT", port.constData());
     }
     // Mounts need the location and time to convert sky coordinates
-    if (!name.empty() && property.getBaseDevice().isDeviceNameMatch(name) &&
-        (property.isNameMatch("GEOGRAPHIC_COORD") || property.isNameMatch("TIME_UTC"))) {
+    if (ours && (property.isNameMatch("GEOGRAPHIC_COORD") || property.isNameMatch("TIME_UTC")))
         QMetaObject::invokeMethod(this, [this]() { send_location_and_time(); }, Qt::QueuedConnection);
-    }
+
     read_property(property);
 }
 
@@ -239,6 +255,10 @@ void MountClient::send_location_and_time()
             sendNewNumber(geographic);
         }
     }
+
+    // Better to leave the mount's own clock alone than to tell it that it's 1970
+    if (!astro::clock_looks_set(astro::julian_now()))
+        return;
 
     INDI::PropertyText time = device.getProperty("TIME_UTC");
     if (time.isValid()) {
@@ -381,6 +401,9 @@ bool MountClient::send_position(const char* mode, double ra_deg, double dec_deg)
 
 QString MountClient::gotoTarget(double ra_deg, double dec_deg, bool solar_filter_fitted)
 {
+    if (!astro::clock_looks_set(astro::julian_now()))
+        return tr("Refused: the clock isn't set, so the Sun's position is unknown. Connect to the internet, or set the clock in Settings.");
+
     switch (astro::check_goto(ra_deg, dec_deg, m_sky->observer(), astro::julian_now(),
                               astro::kDefaultGotoLimits, solar_filter_fitted)) {
     case astro::GotoVerdict::TooCloseToSun:

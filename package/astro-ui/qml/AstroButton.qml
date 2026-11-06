@@ -19,7 +19,7 @@ Rectangle {
     implicitHeight: 44
     radius: 10
     opacity: enabled ? 1.0 : 0.38
-    color: style === "danger" ? (touch.pressed ? theme.dangerHigh : theme.danger)
+    color: style === "danger" ? (touch.pressed ? theme.dangerFillHigh : theme.dangerFill)
          : lit ? (touch.pressed && !active ? theme.accentHigh : theme.accent)
          : style === "quiet" ? "transparent" : theme.surfaceHigh
     border.color: style === "quiet" || lit ? "transparent" : theme.line

@@ -41,7 +41,7 @@ Item {
         Layout.fillWidth: true
         spacing: 4
         AText { Layout.fillWidth: true; text: label; color: theme.dim; font.pixelSize: 12 }
-        AstroButton { implicitWidth: 38; implicitHeight: 36; glyph: "minus"; onClicked: changed(Math.max(step, value - step)) }
+        AstroButton { implicitWidth: 46; implicitHeight: 42; glyph: "minus"; onClicked: changed(Math.max(step, value - step)) }
         AText {
             Layout.preferredWidth: 54
             horizontalAlignment: Text.AlignHCenter
@@ -49,7 +49,7 @@ Item {
             style: "data"
             font.pixelSize: 14
         }
-        AstroButton { implicitWidth: 38; implicitHeight: 36; glyph: "plus"; onClicked: changed(value + step) }
+        AstroButton { implicitWidth: 46; implicitHeight: 42; glyph: "plus"; onClicked: changed(value + step) }
     }
 
     component Result: Column {
@@ -73,13 +73,12 @@ Item {
                 anchors.margins: 11
                 spacing: 4
                 AText {
-                    text: "YOUR EQUIPMENT"
+                    text: "Your equipment"
                     color: theme.accent
-                    font.pixelSize: 10
-                    font.letterSpacing: 1.8
+                    font.pixelSize: 12
                     weight: 600
+                    Layout.bottomMargin: 8
                 }
-                Item { Layout.fillHeight: true }
                 Setting { label: "Focal length, mm"; value: page.focalLength; step: 50; onChanged: (updated) => page.focalLength = updated }
                 Setting { label: "Aperture, mm"; value: page.aperture; step: 10; onChanged: (updated) => page.aperture = updated }
                 Setting { label: "Sensor width, mm"; value: page.sensorWidth; step: 0.5; decimals: 1; onChanged: (updated) => page.sensorWidth = updated }
@@ -102,10 +101,9 @@ Item {
                     anchors.margins: 11
                     spacing: 6
                     AText {
-                        text: "WHAT YOU'LL GET"
+                        text: "What you'll get"
                         color: theme.accent
-                        font.pixelSize: 10
-                        font.letterSpacing: 1.8
+                        font.pixelSize: 12
                         weight: 600
                     }
                     GridLayout {
@@ -140,10 +138,9 @@ Item {
                         Layout.fillWidth: true
                         spacing: 3
                         AText {
-                            text: "POLAR ALIGNMENT"
+                            text: "Polar alignment"
                             color: theme.accent
-                            font.pixelSize: 10
-                            font.letterSpacing: 1.8
+                            font.pixelSize: 12
                             weight: 600
                         }
                         AText {

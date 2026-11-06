@@ -124,11 +124,24 @@ Without a Pi, using QEMU:
 **Touch app**
 
 - Tonight: Moon phase, dark sky times, best targets, and the Sun, Moon and planets
-- Sky Chart: 8,900 stars and 895 deep-sky objects, with pan, pinch, search and tap for details
+- Sky Chart: about 83,000 stars and 895 deep-sky objects at their real sizes, with star colours, constellations, the Milky Way, the Moon's real phase, daylight and dusk, plus pan, pinch, search and tap for details
 - Mount: choice of 10 mount types through INDI, GoTo, Sync, tracking, parking and manual moves
 - Tools: field of view, image scale, exposure limits and a polar alignment dial
 - Red night mode, and a STOP button on every screen
-- GoTo refuses to point near the Sun or below the horizon
+- GoTo refuses to point near the Sun or below the horizon, or at all while the clock isn't set
+- Finds the location and time zone from the internet address, using ipapi.co, unless you enter your own. The clock sets itself over the internet, or by hand when offline
+
+**`astro_sky` shell**
+
+Type `astro_sky` at a terminal for an interactive shell in the style of tools such as `dc_shell`. It runs Tcl, so scripts can use variables, loops and procedures, and it shares its settings and GoTo safety checks with the touch app. Type `help` for the commands.
+
+```tcl
+astro_sky> report_tonight
+astro_sky> foreach body [get_planets] { puts "$body [dict get [get_object $body] alt]" }
+astro_sky> if {[dict get [get_object M31] alt] > 30} { goto_object M31 }
+```
+
+Scripts can also run without the prompt: `astro_sky -f my_script.tcl`, or `astro_sky -x "report_tonight; exit"`.
 
 **Hardware drivers, packaged but not yet tested on real hardware**
 
