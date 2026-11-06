@@ -29,6 +29,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 tools/make-sky-data.py builds these files from their sources.
 
+The login screen's art, board/astro/issue.in, places its bright stars using the HYG
+Database and its galaxy using OpenNGC, so it is also under CC BY-SA 4.0.
+
 moon-map.jpg is lroc_color_poles_1k.jpg from the CGI Moon Kit by NASA's Scientific
 Visualization Studio, https://svs.gsfc.nasa.gov/4720, using data from the Lunar
 Reconnaissance Orbiter. Credit: NASA's Scientific Visualization Studio. NASA does
