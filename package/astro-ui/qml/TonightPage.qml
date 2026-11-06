@@ -68,38 +68,30 @@ Item {
                 }
             }
 
-            GridLayout {
+            Text {
                 Layout.fillWidth: true
-                columns: 7
-                columnSpacing: 10
-                rowSpacing: 4
+                Layout.topMargin: 4
+                font.pixelSize: 15
+                font.family: "DejaVu Sans Mono"
+                font.bold: true
+                color: theme.dim
+                text: "Object".padEnd(9, " ") + "Alt".padStart(7, " ") + "Az".padStart(6, " ")
+                      + "Mag".padStart(7, " ") + "  " + "Rise".padEnd(6, " ") + "High".padEnd(6, " ") + "Set"
+            }
 
-                Repeater {
-                    model: ["Object", "Alt", "Az", "Mag", "Rise", "Transit", "Set"]
-                    delegate: Text {
-                        required property string modelData
-                        text: modelData
-                        color: theme.dim
-                        font.pixelSize: 13
-                        font.bold: true
-                    }
-                }
-
-                Repeater {
-                    model: page.bodies
-                    delegate: Text {
-                        required property var modelData
-                        Layout.columnSpan: 7
-                        Layout.fillWidth: true
-                        font.pixelSize: 15
-                        font.family: "DejaVu Sans Mono"
-                        color: modelData.alt > 0 ? theme.text : theme.dim
-                        text: modelData.name.padEnd(9, " ") + modelData.alt.toFixed(1).padStart(6, " ") + "°"
-                              + modelData.az.toFixed(0).padStart(5, " ") + "°"
-                              + modelData.mag.toFixed(1).padStart(7, " ")
-                              + "  " + modelData.rise.padEnd(6, " ")
-                              + modelData.transit.padEnd(6, " ") + modelData.set
-                    }
+            Repeater {
+                model: page.bodies
+                delegate: Text {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    font.pixelSize: 15
+                    font.family: "DejaVu Sans Mono"
+                    color: modelData.alt > 0 ? theme.text : theme.dim
+                    text: modelData.name.padEnd(9, " ") + (modelData.alt.toFixed(1) + "°").padStart(7, " ")
+                          + (modelData.az.toFixed(0) + "°").padStart(6, " ")
+                          + modelData.mag.toFixed(1).padStart(7, " ")
+                          + "  " + modelData.rise.padEnd(6, " ")
+                          + modelData.transit.padEnd(6, " ") + modelData.set
                 }
             }
         }

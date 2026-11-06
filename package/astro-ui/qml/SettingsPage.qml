@@ -8,7 +8,7 @@ Item {
         property alias text: input.text
         property string label
         spacing: 8
-        Text { Layout.preferredWidth: 170; text: label; color: theme.dim; font.pixelSize: 14 }
+        Text { Layout.preferredWidth: 195; text: label; color: theme.dim; font.pixelSize: 14 }
         Rectangle {
             Layout.fillWidth: true
             height: 40
@@ -47,8 +47,8 @@ Item {
                 text: "Welcome to Astro OS. Enter your location so that it can work out your sky."
             }
 
-            Field { id: lat; label: "Latitude (north +)"; text: sky.locationSet ? sky.latitude : "" }
-            Field { id: lon; label: "Longitude (east +)"; text: sky.locationSet ? sky.longitude : "" }
+            Field { id: lat; label: "Latitude (north +)"; text: sky.locationSet ? sky.latitude.toFixed(4) : "" }
+            Field { id: lon; label: "Longitude (east +)"; text: sky.locationSet ? sky.longitude.toFixed(4) : "" }
             Field { id: elev; label: "Elevation (m)"; text: sky.locationSet ? sky.elevation : "0" }
             Field { id: offset; label: "Time zone (UTC + hours)"; text: sky.utcOffsetMinutes / 60 }
 

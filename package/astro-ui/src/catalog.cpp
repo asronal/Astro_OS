@@ -55,7 +55,9 @@ bool Catalog::load(const QString& directory, double jd)
         if (f.size() < 7)
             continue;
         astro::precess_from_j2000(f[3].toDouble(), f[4].toDouble(), jd, &ra, &dec);
-        m_objects.append({f[0], f[1], f[2], float(ra), float(dec), f[5].toFloat(), !f[5].isEmpty()});
+        // Other catalogs also have names starting with M, such as MWSC 3171
+        bool is_messier = f[0].size() > 1 && f[0].at(0) == QLatin1Char('M') && f[0].at(1).isDigit();
+        m_objects.append({f[0], f[1], f[2], float(ra), float(dec), f[5].toFloat(), !f[5].isEmpty(), is_messier});
     }
     return true;
 }

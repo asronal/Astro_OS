@@ -15,7 +15,7 @@ Window {
     }
 
     visible: true
-    visibility: Window.FullScreen
+    visibility: runWindowed ? Window.Windowed : Window.FullScreen
     width: 800
     height: 480
     title: "Astro OS"
@@ -30,7 +30,7 @@ Window {
         readonly property color text: night ? "#e0392c" : "#e8edf8"
         readonly property color dim: night ? "#a12a20" : "#9aa8c4"
         readonly property color accent: night ? "#a81f15" : "#3b6fd4"
-        readonly property color onAccent: night ? "#ffc9c2" : "#ffffff"
+        readonly property color accentText: night ? "#ffc9c2" : "#ffffff"
         readonly property color danger: night ? "#d81b10" : "#c8281e"
     }
 

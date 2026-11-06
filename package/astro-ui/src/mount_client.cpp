@@ -327,6 +327,32 @@ void MountClient::disconnectMount()
         disconnectDevice(name.c_str());
 }
 
+// Turn on one switch and all others off. INDI's own helper only turns one on and
+// leaves the previous choice on too, so the driver would act on the old one: a
+// Sync could become a GoTo, and tracking could not be turned off.
+void MountClient::select_switch(const char* property_name, const char* element_name)
+{
+    std::string name = device_name();
+    if (name.empty())
+        return;
+
+    INDI::BaseDevice device = getDevice(name.c_str());
+    if (!device.isValid())
+        return;
+
+    INDI::PropertySwitch property = device.getProperty(property_name);
+    if (!property.isValid())
+        return;
+
+    auto element = property.findWidgetByName(element_name);
+    if (!element)
+        return;
+
+    property.reset();
+    element->setState(ISS_ON);
+    sendNewSwitch(property);
+}
+
 bool MountClient::send_position(const char* mode, double ra_deg, double dec_deg)
 {
     std::string name = device_name();
@@ -346,7 +372,7 @@ bool MountClient::send_position(const char* mode, double ra_deg, double dec_deg)
     if (!ra || !dec)
         return false;
 
-    sendNewSwitch(name.c_str(), "ON_COORD_SET", mode);
+    select_switch("ON_COORD_SET", mode);
     ra->setValue(ra_deg / 15.0);
     dec->setValue(dec_deg);
     sendNewNumber(coords);
@@ -380,7 +406,7 @@ void MountClient::abort()
 {
     std::string name = device_name();
     if (!name.empty())
-        sendNewSwitch(name.c_str(), "TELESCOPE_ABORT_MOTION", "ABORT");
+        select_switch("TELESCOPE_ABORT_MOTION", "ABORT");
     m_message = tr("Stopped.");
     emit stateChanged();
 }
@@ -389,7 +415,7 @@ void MountClient::setTracking(bool enabled)
 {
     std::string name = device_name();
     if (!name.empty())
-        sendNewSwitch(name.c_str(), "TELESCOPE_TRACK_STATE", enabled ? "TRACK_ON" : "TRACK_OFF");
+        select_switch("TELESCOPE_TRACK_STATE", enabled ? "TRACK_ON" : "TRACK_OFF");
 }
 
 void MountClient::moveStart(const QString& direction)
@@ -399,13 +425,13 @@ void MountClient::moveStart(const QString& direction)
         return;
 
     if (direction == QLatin1String("N"))
-        sendNewSwitch(name.c_str(), "TELESCOPE_MOTION_NS", "MOTION_NORTH");
+        select_switch("TELESCOPE_MOTION_NS", "MOTION_NORTH");
     else if (direction == QLatin1String("S"))
-        sendNewSwitch(name.c_str(), "TELESCOPE_MOTION_NS", "MOTION_SOUTH");
+        select_switch("TELESCOPE_MOTION_NS", "MOTION_SOUTH");
     else if (direction == QLatin1String("E"))
-        sendNewSwitch(name.c_str(), "TELESCOPE_MOTION_WE", "MOTION_EAST");
+        select_switch("TELESCOPE_MOTION_WE", "MOTION_EAST");
     else if (direction == QLatin1String("W"))
-        sendNewSwitch(name.c_str(), "TELESCOPE_MOTION_WE", "MOTION_WEST");
+        select_switch("TELESCOPE_MOTION_WE", "MOTION_WEST");
 }
 
 void MountClient::moveStop()
@@ -428,12 +454,12 @@ void MountClient::park()
 {
     std::string name = device_name();
     if (!name.empty())
-        sendNewSwitch(name.c_str(), "TELESCOPE_PARK", "PARK");
+        select_switch("TELESCOPE_PARK", "PARK");
 }
 
 void MountClient::unpark()
 {
     std::string name = device_name();
     if (!name.empty())
-        sendNewSwitch(name.c_str(), "TELESCOPE_PARK", "UNPARK");
+        select_switch("TELESCOPE_PARK", "UNPARK");
 }

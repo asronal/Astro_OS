@@ -19,6 +19,7 @@ struct CatalogObject {
     float dec_deg;
     float mag;
     bool has_mag;
+    bool is_messier;
 };
 
 // Bright stars and deep-sky objects, with positions precessed to the given date

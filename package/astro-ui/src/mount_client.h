@@ -82,6 +82,7 @@ private:
     void send_location_and_time();
     void try_connect_to_server();
     void load_profile();
+    void select_switch(const char* property_name, const char* element_name);
     bool send_position(const char* mode, double ra_deg, double dec_deg);
     std::string device_name() const;
 

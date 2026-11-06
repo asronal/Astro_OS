@@ -22,7 +22,7 @@ Rectangle {
         id: label
         anchors.centerIn: parent
         text: button.text
-        color: button.danger || button.active || touch.pressed ? theme.onAccent : theme.text
+        color: button.danger || button.active || touch.pressed ? theme.accentText : theme.text
         font.pixelSize: 16
         font.bold: button.danger
     }

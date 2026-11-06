@@ -27,6 +27,8 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("sky"), &sky);
     engine.rootContext()->setContextProperty(QStringLiteral("mount"), &mount);
+    // For trying the app in a window on a PC
+    engine.rootContext()->setContextProperty(QStringLiteral("runWindowed"), qEnvironmentVariableIsSet("ASTRO_WINDOWED"));
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
     if (engine.rootObjects().isEmpty())
         return 1;

@@ -22,5 +22,12 @@ genimage \
 	--config "${BOARD_DIR}/genimage-astro.cfg"
 
 cd "${BINARIES_DIR}"
+
+# genimage leaves the MBR boot code empty. When parted sees that, it wipes the
+# sector and invents a new disk ID, so resizing /data on first boot would stop
+# the root partition being found on the next boot. Any non-zero first byte
+# prevents this. The Pi's firmware doesn't run this code.
+printf '\372' | dd of=sdcard.img bs=1 count=1 conv=notrunc status=none
+
 xz -T0 -f -k sdcard.img
 sha256sum sdcard.img.xz > SHA256SUMS

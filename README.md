@@ -115,6 +115,18 @@ Astro OS is becoming a self-contained field computer for astronomy and astrophot
 - Twilight times and best targets tonight
 - Checked against NASA JPL Horizons on the build PC: positions within 1 arcminute, rise and set within 3 minutes for the Sun and Jupiter, and within 5 minutes for the Moon
 
+## Trying It Without a Pi
+
+After a build, you can try Astro OS on your PC:
+
+```sh
+tools/try-app.sh          # The touch app in a window, with a simulated telescope
+tools/try-app.sh --vnc    # The same, for a VNC viewer on localhost:5900
+tools/try-os.sh           # Boot the whole OS on an emulated Pi 4, in the terminal
+```
+
+`try-os.sh` checks booting and services. It has no network, GPU or touch screen, so those still need a real Pi.
+
 ## Target
 
 - Raspberry Pi 4

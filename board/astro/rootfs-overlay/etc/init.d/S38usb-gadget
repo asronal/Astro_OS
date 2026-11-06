@@ -53,6 +53,8 @@ create_gadget() {
 start() {
 	printf 'Starting USB-C gadget: '
 	modprobe libcomposite 2> /dev/null
+	# Nothing else mounts this on a system without systemd
+	mountpoint -q /sys/kernel/config || mount -t configfs none /sys/kernel/config
 	if ! create_gadget; then
 		echo "FAIL"
 		return 1

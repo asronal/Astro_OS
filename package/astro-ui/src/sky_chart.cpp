@@ -1,6 +1,7 @@
 #include "sky_chart.h"
 
 #include <QPainter>
+#include <QPainterPath>
 #include <QtMath>
 
 #include <algorithm>
@@ -197,6 +198,8 @@ void SkyChart::paint(QPainter* painter)
     double alt;
     equatorial_to_screen_inputs(&lst_rad, &sin_lat, &cos_lat);
 
+    draw_ground(painter, ground);
+
     // Draw only the stars visible at this zoom level, brightest first
     double mag_limit = std::clamp(7.0 - m_fov / 45.0, 3.5, 6.5);
     painter->setPen(Qt::NoPen);
@@ -231,8 +234,7 @@ void SkyChart::paint(QPainter* painter)
     // Deep-sky objects, with Messier objects always shown first
     painter->setPen(QPen(deep_sky, 1.2));
     for (const CatalogObject& o : m_sky->catalog().objects()) {
-        bool messier = o.name.startsWith(QLatin1Char('M'));
-        if (!messier && m_fov > 30.0)
+        if (!o.is_messier && m_fov > 30.0)
             break;
         fast_horizontal(o.ra_deg, o.dec_deg, lst_rad, sin_lat, cos_lat, &az, &alt);
         if (alt < -1.0 || !project(az, alt, &point) || !boundingRect().contains(point))
@@ -260,21 +262,6 @@ void SkyChart::paint(QPainter* painter)
     }
     font.setBold(false);
     painter->setFont(font);
-
-    // The horizon, with the ground below it
-    QPolygonF horizon;
-    for (double a = m_center_az - 180.0; a <= m_center_az + 180.0; a += 2.0) {
-        if (project(a, 0.0, &point))
-            horizon.append(point);
-    }
-    if (horizon.size() >= 2) {
-        QPolygonF ground_shape = horizon;
-        ground_shape.append(QPointF(horizon.last().x(), height() + 2000.0));
-        ground_shape.append(QPointF(horizon.first().x(), height() + 2000.0));
-        painter->setPen(Qt::NoPen);
-        painter->setBrush(ground);
-        painter->drawPolygon(ground_shape);
-    }
 
     // Compass points along the horizon
     painter->setPen(label);
@@ -308,6 +295,35 @@ void SkyChart::paint(QPainter* painter)
             painter->drawLine(point + QPointF(0, 5), point + QPointF(0, 16));
         }
     }
+}
+
+void SkyChart::draw_ground(QPainter* painter, const QColor& color) const
+{
+    // In this projection the horizon is a circle. It encloses the sky when the
+    // view is centred above the horizon, and the ground when centred below it.
+    QPolygonF horizon;
+    QPointF point;
+    for (double a = m_center_az - 180.0; a < m_center_az + 180.0; a += 1.0) {
+        if (project(a, 0.0, &point))
+            horizon.append(point);
+    }
+    if (horizon.size() < 3)
+        return;
+
+    QPainterPath ground;
+    ground.addPolygon(horizon);
+    ground.closeSubpath();
+    if (m_center_alt >= 0.0) {
+        QPainterPath everything;
+        everything.addRect(boundingRect());
+        ground = everything.subtracted(ground);
+    }
+
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(color);
+    painter->setClipRect(boundingRect());
+    painter->drawPath(ground);
+    painter->setClipping(false);
 }
 
 QVariantMap SkyChart::objectAt(double x, double y) const
@@ -353,8 +369,7 @@ QVariantMap SkyChart::objectAt(double x, double y) const
         consider(s.ra_deg, s.dec_deg, 0.0, details);
     }
     for (const CatalogObject& o : m_sky->catalog().objects()) {
-        bool messier = o.name.startsWith(QLatin1Char('M'));
-        if (!messier && m_fov > 30.0)
+        if (!o.is_messier && m_fov > 30.0)
             break;
         QVariantMap details;
         details[QStringLiteral("name")] = o.common.isEmpty() ? o.name : o.name + QStringLiteral(" ") + o.common;
