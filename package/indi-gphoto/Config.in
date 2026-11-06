@@ -1,0 +1,7 @@
+config BR2_PACKAGE_INDI_GPHOTO
+	bool "indi-gphoto"
+	depends on BR2_PACKAGE_LIBINDI
+	select BR2_PACKAGE_LIBGPHOTO2
+	select BR2_PACKAGE_LIBRAW
+	help
+	  INDI driver for DSLR and mirrorless cameras over USB.

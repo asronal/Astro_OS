@@ -20,7 +20,7 @@ grow_data() {
 	resize2fs "${ASTRO_DATA_PART}" || echo "resize2fs FAILED"
 	mount_data || return 1
 	mkdir -p /data/config /data/captures
-	chown 1000:1000 /data/captures
+	chown 1000:1000 /data/config /data/captures
 	touch "${READY_MARKER}"
 }
 

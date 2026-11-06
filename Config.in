@@ -1,7 +1,13 @@
 menu "Astro OS packages"
 
 source "$BR2_EXTERNAL_ASTRO_PATH/package/libnova/Config.in"
+source "$BR2_EXTERNAL_ASTRO_PATH/package/cfitsio/Config.in"
+source "$BR2_EXTERNAL_ASTRO_PATH/package/libindi/Config.in"
+source "$BR2_EXTERNAL_ASTRO_PATH/package/indi-eqmod/Config.in"
+source "$BR2_EXTERNAL_ASTRO_PATH/package/indi-gphoto/Config.in"
 source "$BR2_EXTERNAL_ASTRO_PATH/package/astro-core/Config.in"
+source "$BR2_EXTERNAL_ASTRO_PATH/package/astro-ui/Config.in"
+source "$BR2_EXTERNAL_ASTRO_PATH/package/indi-astro-servo/Config.in"
 source "$BR2_EXTERNAL_ASTRO_PATH/package/astro-info/Config.in"
 
 endmenu

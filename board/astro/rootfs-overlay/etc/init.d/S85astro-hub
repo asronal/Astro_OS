@@ -1,0 +1,62 @@
+#!/bin/sh
+#
+# Run the INDI server with the drivers chosen in the touch app.
+#
+# INDI has no login, so its port stays closed to the network unless laptop
+# control has been turned on. If the port cannot be closed, the server does not
+# start.
+#
+
+CONFIG="/data/config/astro-hub.conf"
+PIDFILE="/run/astro-hub.pid"
+INDI_PORT="7624"
+DRIVERS="indi_simulator_telescope"
+REMOTE_ACCESS="no"
+
+[ -f "${CONFIG}" ] && . "${CONFIG}"
+
+close_port() {
+	iptables -C INPUT -p tcp --dport "${INDI_PORT}" ! -i lo -j DROP 2> /dev/null ||
+		iptables -I INPUT -p tcp --dport "${INDI_PORT}" ! -i lo -j DROP
+}
+
+open_port() {
+	while iptables -D INPUT -p tcp --dport "${INDI_PORT}" ! -i lo -j DROP 2> /dev/null; do
+		:
+	done
+}
+
+start() {
+	printf 'Starting INDI server: '
+	if [ "${REMOTE_ACCESS}" = "yes" ]; then
+		open_port
+	elif ! close_port; then
+		echo "FAIL (could not close port ${INDI_PORT})"
+		return 1
+	fi
+	# shellcheck disable=SC2086
+	start-stop-daemon -S -b -m -p "${PIDFILE}" -c astro -x /usr/bin/indiserver -- \
+		-p "${INDI_PORT}" -r 2 ${DRIVERS}
+	status=$?
+	[ "${status}" -eq 0 ] && echo "OK" || echo "FAIL"
+	return "${status}"
+}
+
+stop() {
+	printf 'Stopping INDI server: '
+	start-stop-daemon -K -q -p "${PIDFILE}"
+	rm -f "${PIDFILE}"
+	echo "OK"
+}
+
+case "$1" in
+	start|stop)
+		"$1";;
+	restart|reload)
+		stop
+		sleep 1
+		start;;
+	*)
+		echo "Usage: $0 {start|stop|restart|reload}"
+		exit 1
+esac

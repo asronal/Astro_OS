@@ -1,0 +1,9 @@
+stars.csv is derived from the HYG Database v4.1 by David Nash (astronexus),
+https://github.com/astronexus/HYG-Database, licensed under CC BY-SA 4.0.
+Filtered to magnitude 6.5 and brighter.
+
+deepsky.csv is derived from OpenNGC by Mattia Verga,
+https://github.com/mattiaverga/OpenNGC, licensed under CC BY-SA 4.0.
+Filtered to Messier objects and objects of magnitude 11 and brighter.
+
+These derived files are also licensed under CC BY-SA 4.0.

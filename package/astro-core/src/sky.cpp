@@ -350,4 +350,47 @@ double sun_separation_deg(double ra_deg, double dec_deg, double jd)
     return ln_get_angular_separation(&object, &sun);
 }
 
+void precess_from_j2000(double ra_deg, double dec_deg, double jd, double* ra_out, double* dec_out)
+{
+    ln_equ_posn j2000;
+    ln_equ_posn position;
+
+    j2000.ra = ra_deg;
+    j2000.dec = dec_deg;
+    ln_get_equ_prec2(&j2000, JD2000, jd, &position);
+    *ra_out = wrap_360(position.ra);
+    *dec_out = position.dec;
+}
+
+double local_sidereal_deg(const Observer& observer, double jd)
+{
+    return wrap_360(ln_get_apparent_sidereal_time(jd) * 15.0 + observer.lon_deg);
+}
+
+double polaris_hour_angle_deg(const Observer& observer, double jd)
+{
+    const double kPolarisRaJ2000 = 37.9546;
+    const double kPolarisDecJ2000 = 89.2641;
+    double ra;
+    double dec;
+
+    precess_from_j2000(kPolarisRaJ2000, kPolarisDecJ2000, jd, &ra, &dec);
+    return wrap_360(local_sidereal_deg(observer, jd) - ra);
+}
+
+GotoVerdict check_goto(double ra_deg, double dec_deg, const Observer& observer, double jd,
+                       const GotoLimits& limits, bool solar_filter_fitted)
+{
+    double az;
+    double alt;
+
+    if (!solar_filter_fitted && sun_separation_deg(ra_deg, dec_deg, jd) < limits.sun_min_separation_deg)
+        return GotoVerdict::TooCloseToSun;
+
+    equatorial_to_horizontal(ra_deg, dec_deg, observer, jd, &az, &alt);
+    if (alt < limits.min_altitude_deg)
+        return GotoVerdict::BelowHorizon;
+    return GotoVerdict::Allowed;
+}
+
 } // namespace astro

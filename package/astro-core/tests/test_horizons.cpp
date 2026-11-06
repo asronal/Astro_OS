@@ -133,6 +133,40 @@ static void test_sun_separation()
           std::fabs(sun_separation_deg(std::fmod(sun.ra_deg + 180.0, 360.0), -sun.dec_deg, jd) - 180.0), 0.01);
 }
 
+static void check_verdict(const std::string& label, GotoVerdict actual, GotoVerdict expected)
+{
+    check(label, actual == expected ? 0.0 : 1.0, 0.0);
+}
+
+static void test_goto_safety()
+{
+    // Midday, with the Sun high over Greenwich
+    double jd = julian_from_utc(2026, 6, 21, 12, 0, 0.0);
+    BodyReport sun = body_report(Body::Sun, kGreenwich, jd);
+    GotoLimits limits = kDefaultGotoLimits;
+
+    check_verdict("GoTo the Sun is refused",
+                  check_goto(sun.ra_deg, sun.dec_deg, kGreenwich, jd, limits, false),
+                  GotoVerdict::TooCloseToSun);
+    check_verdict("GoTo 14 degrees from the Sun is refused",
+                  check_goto(sun.ra_deg, sun.dec_deg - 14.0, kGreenwich, jd, limits, false),
+                  GotoVerdict::TooCloseToSun);
+    check_verdict("GoTo 16 degrees from the Sun is allowed",
+                  check_goto(sun.ra_deg, sun.dec_deg - 16.0, kGreenwich, jd, limits, false),
+                  GotoVerdict::Allowed);
+    check_verdict("GoTo the Sun with a filter is allowed",
+                  check_goto(sun.ra_deg, sun.dec_deg, kGreenwich, jd, limits, true),
+                  GotoVerdict::Allowed);
+
+    // The point opposite the Sun is below the horizon at midday
+    check_verdict("GoTo below the horizon is refused",
+                  check_goto(std::fmod(sun.ra_deg + 180.0, 360.0), -sun.dec_deg, kGreenwich, jd, limits, false),
+                  GotoVerdict::BelowHorizon);
+    check_verdict("A filter does not allow GoTo below the horizon",
+                  check_goto(std::fmod(sun.ra_deg + 180.0, 360.0), -sun.dec_deg, kGreenwich, jd, limits, true),
+                  GotoVerdict::BelowHorizon);
+}
+
 int main(int argc, char *argv[])
 {
     if (argc != 3) {
@@ -143,6 +177,7 @@ int main(int argc, char *argv[])
     test_positions(argv[1]);
     test_rise_set(argv[2]);
     test_sun_separation();
+    test_goto_safety();
 
     std::printf("\n%d failure(s)\n", failures);
     return failures ? 1 : 0;

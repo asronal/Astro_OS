@@ -35,6 +35,13 @@ MOTD
 
 mkdir -p "${TARGET_DIR}/boot" "${TARGET_DIR}/data"
 
+# Remote screen over VNC has no real protection, so development images only
+if grep -q '^# BR2_TARGET_ENABLE_ROOT_LOGIN is not set' "${BR2_CONFIG}"; then
+	echo 'ALLOW_VNC="no"' > "${TARGET_DIR}/etc/astro-ui.conf"
+else
+	echo 'ALLOW_VNC="yes"' > "${TARGET_DIR}/etc/astro-ui.conf"
+fi
+
 # Allow console logins on the USB-C serial port
 if [ -f "${TARGET_DIR}/etc/securetty" ] && ! grep -qx ttyGS0 "${TARGET_DIR}/etc/securetty"; then
 	echo ttyGS0 >> "${TARGET_DIR}/etc/securetty"

@@ -70,8 +70,32 @@ std::vector<NightTarget> best_targets(const Observer& observer, double jd, doubl
 void equatorial_to_horizontal(double ra_deg, double dec_deg, const Observer& observer, double jd,
                               double* az_deg, double* alt_deg);
 
+// Convert a J2000 catalog position to the requested date
+void precess_from_j2000(double ra_deg, double dec_deg, double jd, double* ra_out, double* dec_out);
+
+// Local apparent sidereal time, in degrees
+double local_sidereal_deg(const Observer& observer, double jd);
+
+// Hour angle of Polaris at the requested time, in degrees, for polar alignment
+double polaris_hour_angle_deg(const Observer& observer, double jd);
+
 // Angle between a sky position and the Sun, used to keep a telescope away from it
 double sun_separation_deg(double ra_deg, double dec_deg, double jd);
+
+struct GotoLimits {
+    double sun_min_separation_deg;
+    double min_altitude_deg;
+};
+
+enum class GotoVerdict { Allowed, TooCloseToSun, BelowHorizon };
+
+const GotoLimits kDefaultGotoLimits = {15.0, 0.0};
+
+// Decide whether a telescope may slew to a position. Pointing near the Sun can
+// blind an observer and destroy equipment, so it is refused unless the user has
+// confirmed that a solar filter is fitted.
+GotoVerdict check_goto(double ra_deg, double dec_deg, const Observer& observer, double jd,
+                       const GotoLimits& limits, bool solar_filter_fitted);
 
 } // namespace astro
 

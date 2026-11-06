@@ -1,0 +1,7 @@
+config BR2_PACKAGE_INDI_ASTRO_SERVO
+	bool "indi-astro-servo"
+	depends on BR2_PACKAGE_LIBINDI
+	help
+	  INDI driver for pointing a telescope with two RC servos on a
+	  PCA9685 board. For pointing and visual use only, because RC
+	  servos are not accurate enough to track long exposures.

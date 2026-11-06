@@ -1,0 +1,5 @@
+config BR2_PACKAGE_INDI_EQMOD
+	bool "indi-eqmod"
+	depends on BR2_PACKAGE_LIBINDI
+	help
+	  INDI driver for direct control of Sky-Watcher mounts.

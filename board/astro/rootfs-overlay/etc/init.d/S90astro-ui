@@ -1,0 +1,39 @@
+#!/bin/sh
+#
+# Start the Astro OS touch interface as the astro user.
+#
+
+DAEMON="/usr/lib/astro/ui-session.sh"
+PIDFILE="/run/astro-ui.pid"
+RUNTIME_DIR="/run/astro-ui"
+
+start() {
+	printf 'Starting Astro OS interface: '
+	mkdir -p "${RUNTIME_DIR}"
+	chown astro:astro "${RUNTIME_DIR}"
+	chmod 0700 "${RUNTIME_DIR}"
+	start-stop-daemon -S -b -m -p "${PIDFILE}" -c astro -x "${DAEMON}"
+	status=$?
+	[ "${status}" -eq 0 ] && echo "OK" || echo "FAIL"
+	return "${status}"
+}
+
+stop() {
+	printf 'Stopping Astro OS interface: '
+	start-stop-daemon -K -q -p "${PIDFILE}"
+	killall -q weston astro-ui
+	rm -f "${PIDFILE}"
+	echo "OK"
+}
+
+case "$1" in
+	start|stop)
+		"$1";;
+	restart|reload)
+		stop
+		sleep 1
+		start;;
+	*)
+		echo "Usage: $0 {start|stop|restart|reload}"
+		exit 1
+esac
