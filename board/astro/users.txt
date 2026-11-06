@@ -1,1 +1,1 @@
-astro 1000 astro 1000 * /home/astro /bin/sh - Astro OS development user
+astro 1000 astro 1000 * /home/astro /bin/sh video,input,dialout,plugdev Astro OS development user

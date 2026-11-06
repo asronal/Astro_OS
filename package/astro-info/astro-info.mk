@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-ASTRO_INFO_VERSION = 0.6.0
+ASTRO_INFO_VERSION = $(shell cat $(BR2_EXTERNAL_ASTRO_PATH)/VERSION)
 ASTRO_INFO_SITE = $(BR2_EXTERNAL_ASTRO_PATH)/package/astro-info
 ASTRO_INFO_SITE_METHOD = local
 

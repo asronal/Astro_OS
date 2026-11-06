@@ -7,3 +7,6 @@ dl/
 # Temporary/editor files
 *~
 *.swp
+
+# Local SSH keys, never committed
+board/astro/local/

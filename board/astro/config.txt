@@ -1,0 +1,26 @@
+# Astro OS boot configuration for Raspberry Pi 4
+
+start_file=start4.elf
+fixup_file=fixup4.dat
+
+kernel=Image
+arm_64bit=1
+
+disable_overscan=1
+
+# Enable UART0 for serial console on ttyAMA0
+dtoverlay=miniuart-bt
+
+# GPU driver, needed for /dev/dri and Weston
+dtoverlay=vc4-kms-v3d-pi4
+disable_fw_kms_setup=1
+
+# Detect the official DSI display and CSI cameras
+display_auto_detect=1
+camera_auto_detect=1
+
+# USB-C port acts as a device, so a PC can connect to it
+dtoverlay=dwc2,dr_mode=peripheral
+
+# Per-device settings, editable from any PC
+include astro-hardware.txt

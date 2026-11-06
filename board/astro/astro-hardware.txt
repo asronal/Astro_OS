@@ -1,0 +1,9 @@
+# Astro OS per-device hardware settings.
+# Remove the leading # from a line to enable it, then reboot.
+
+# Third-party DSI display (pick the overlay matching your panel)
+#dtoverlay=vc4-kms-dsi-waveshare-panel,7_0_inchC
+
+# DS3231 real-time clock on I2C
+#dtparam=i2c_arm=on
+#dtoverlay=i2c-rtc,ds3231

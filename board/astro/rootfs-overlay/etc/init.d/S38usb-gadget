@@ -1,0 +1,100 @@
+#!/bin/sh
+#
+# Make the USB-C port appear to a connected PC as a network adapter and a
+# serial port. The Pi is 10.55.0.1 and dnsmasq gives the PC an address.
+#
+
+GADGET="/sys/kernel/config/usb_gadget/astro"
+PI_ADDRESS="10.55.0.1/24"
+IFACE="usb0"
+GETTY_PIDFILE="/run/usb-gadget-getty.pid"
+
+# Fixed MAC addresses stop the PC seeing a new network adapter on every boot
+mac_suffix() {
+	serial="$(tr -d '\0' 2> /dev/null < /proc/device-tree/serial-number)"
+	case "${serial}" in
+		*??????)
+			echo "${serial}" | sed 's/.*\(..\)\(..\)\(..\)$/\1:\2:\3/';;
+		*)
+			echo "00:00:01";;
+	esac
+}
+
+create_gadget() {
+	mkdir -p "${GADGET}" || return 1
+	cd "${GADGET}" || return 1
+
+	# Linux Foundation multifunction composite gadget
+	echo 0x1d6b > idVendor
+	echo 0x0104 > idProduct
+	echo 0x0200 > bcdUSB
+	# Needed for Windows to accept a device with several functions
+	echo 0xEF > bDeviceClass
+	echo 0x02 > bDeviceSubClass
+	echo 0x01 > bDeviceProtocol
+
+	mkdir -p strings/0x409
+	tr -d '\0' 2> /dev/null < /proc/device-tree/serial-number > strings/0x409/serialnumber
+	echo "Astro OS" > strings/0x409/manufacturer
+	echo "Astro OS USB-C" > strings/0x409/product
+
+	mkdir -p configs/c.1/strings/0x409
+	echo "Network and serial" > configs/c.1/strings/0x409/configuration
+	echo 500 > configs/c.1/MaxPower
+
+	suffix="$(mac_suffix)"
+	mkdir -p functions/ncm.usb0 functions/acm.usb0
+	echo "02:a5:01:${suffix}" > functions/ncm.usb0/dev_addr
+	echo "02:a5:02:${suffix}" > functions/ncm.usb0/host_addr
+	ln -sf "${GADGET}/functions/ncm.usb0" configs/c.1/
+	ln -sf "${GADGET}/functions/acm.usb0" configs/c.1/
+}
+
+start() {
+	printf 'Starting USB-C gadget: '
+	modprobe libcomposite 2> /dev/null
+	if ! create_gadget; then
+		echo "FAIL"
+		return 1
+	fi
+
+	# The USB controller may still be starting up
+	retries=10
+	udc=""
+	while [ -z "${udc}" ] && [ "${retries}" -gt 0 ]; do
+		udc="$(ls /sys/class/udc 2> /dev/null | head -n 1)"
+		[ -n "${udc}" ] || sleep 1
+		retries=$((retries - 1))
+	done
+	if [ -z "${udc}" ] || ! echo "${udc}" > "${GADGET}/UDC"; then
+		echo "FAIL (no USB device controller)"
+		return 1
+	fi
+
+	ip addr add "${PI_ADDRESS}" dev "${IFACE}"
+	ip link set "${IFACE}" up
+
+	setsid sh -c 'while true; do /sbin/getty -L ttyGS0 115200 vt100; sleep 1; done' \
+		> /dev/null 2>&1 < /dev/null &
+	echo "$!" > "${GETTY_PIDFILE}"
+	echo "OK"
+}
+
+stop() {
+	printf 'Stopping USB-C gadget: '
+	[ -f "${GETTY_PIDFILE}" ] && kill "$(cat "${GETTY_PIDFILE}")" 2> /dev/null
+	rm -f "${GETTY_PIDFILE}"
+	echo "" > "${GADGET}/UDC" 2> /dev/null
+	echo "OK"
+}
+
+case "$1" in
+	start|stop)
+		"$1";;
+	restart|reload)
+		stop
+		start;;
+	*)
+		echo "Usage: $0 {start|stop|restart|reload}"
+		exit 1
+esac

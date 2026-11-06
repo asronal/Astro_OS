@@ -4,11 +4,11 @@ Astro OS is an experimental embedded Linux distribution built with Buildroot, cu
 
 ## Current Release
 
-**Astro OS v0.7.0**
+**Astro OS v0.8.0** (in progress)
 
-v0.7.0 focuses on system usability and login environment improvements while retaining the networking, SSH, graphics, and non-root user functionality developed in previous releases.
+Astro OS is becoming a self-contained field computer for astronomy and astrophotography, with a touchscreen, telescope and camera control, and offline sky data. v0.8.0 builds the base for that: an image designed to boot and be reachable on a real Raspberry Pi 4.
 
-> Hardware validation on a physical Raspberry Pi 4 is still pending.
+> **Nothing has been tested on a physical Raspberry Pi 4 yet.** Features below describe what is built into the image, not what is proven to work. See [Hardware Status](#hardware-status).
 
 ## Features
 
@@ -82,6 +82,31 @@ v0.7.0 focuses on system usability and login environment improvements while reta
 - Version and platform information displayed in the login environment
 - Existing networking, Wi-Fi, SSH and graphics functionality retained
 
+### v0.8.0 — Base System
+
+- Portable build: Bootlin toolchain downloaded by Buildroot, with no machine-specific paths
+- Wi-Fi firmware and regulatory database
+- SSH login as `astro` using your own key, with `sudo`
+- Separate release configuration with root login locked
+- Boot configuration that enables the GPU driver and detects DSI displays and CSI cameras
+- `/data` partition that grows to fill the boot drive on first boot
+- USB-C connection to a PC: network with SSH, plus a serial console
+- Network time with `chrony`, CA certificates, filesystem tools
+- Version number generated from a single `VERSION` file
+
+## Hardware Status
+
+| Item | Status |
+|---|---|
+| Boot on Raspberry Pi 4 | Untested |
+| Ethernet | Untested |
+| Wi-Fi | Untested |
+| SSH login | Untested |
+| USB-C network and serial | Untested |
+| GPU driver (`/dev/dri`) | Untested |
+| `/data` growing to fill the boot drive | Untested |
+| Booting from a USB drive | Untested |
+
 ## Target
 
 - Raspberry Pi 4
@@ -92,9 +117,73 @@ v0.7.0 focuses on system usability and login environment improvements while reta
 - BusyBox
 - ext4 root filesystem
 
-## Build Environment
+## Building
 
-### Buildroot
+Lay out a workspace with Buildroot 2026.05.2 in `buildroot-2026.05.2/` and this repository in `projects/pi4/`, then from `projects/pi4/`:
 
-```text
-buildroot-2026.05.2
+```sh
+# Optional: lets you log in over SSH as astro. This file is never committed.
+mkdir -p board/astro/local
+cp ~/.ssh/id_ed25519.pub board/astro/local/authorized_keys
+
+cd ../../buildroot-2026.05.2
+make BR2_EXTERNAL=../projects/pi4 O=../build/pi4 pi4_defconfig
+make O=../build/pi4
+```
+
+The image is written to `build/pi4/images/sdcard.img.xz` in the workspace.
+
+- **Windows/WSL:** Buildroot rejects a `PATH` containing spaces, which WSL adds by default. Prefix both `make` commands with `env PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`.
+- **Shared downloads:** set `BR2_DL_DIR` to reuse a download cache between builds.
+- **Release images:** use `pi4_release_defconfig`. Root login is locked, and the build fails without an SSH key because the device would otherwise be unreachable.
+
+The development image `pi4_defconfig` has the root password `root`, so use it only on a trusted network.
+
+## First Boot
+
+1. Flash `sdcard.img.xz` with Raspberry Pi Imager ("Use custom"). On WSL, reach the file through `\\wsl$`.
+2. To set up Wi-Fi, add this as `wpa_supplicant.conf` on the drive's boot partition, using your own values. On the next boot it moves to `/data` and is removed from the boot partition.
+
+   ```text
+   ctrl_interface=/run/wpa_supplicant
+   update_config=1
+   country=US
+
+   network={
+       ssid="your-network"
+       psk="your-password"
+   }
+   ```
+
+3. Boot the Pi. The first boot grows `/data` to fill the drive.
+4. Log in on the HDMI or serial console (115200 baud on GPIO14/15) as `root`, or with `ssh astro@<ip-address>` if you added a key.
+
+## Booting from USB
+
+The same `sdcard.img.xz` image works on a USB drive, which leaves any OS on the SD card untouched. Astro OS only ever writes to the drive it booted from.
+
+1. Flash the image to the USB drive with Raspberry Pi Imager, and check that the USB drive is the selected target. Flashing erases that whole drive.
+2. Check the Pi's bootloader from your current OS. Its version should be from September 2020 or later:
+
+   ```sh
+   vcgencmd bootloader_version
+   vcgencmd bootloader_config | grep BOOT_ORDER
+   ```
+
+3. Choose how to switch between the two systems:
+   - **No settings changed:** remove the SD card to boot from USB, assuming the Pi tries USB after the SD card. `BOOT_ORDER=0xf41` does this.
+   - **No card swapping:** run `sudo -E rpi-eeprom-config --edit`, set `BOOT_ORDER=0xf14`, and reboot. The Pi then boots from USB when the drive is plugged in and from the SD card when it is unplugged.
+
+Don't attach two drives flashed with this image at the same time, because both copies share the same partition IDs and the Pi could mount the wrong one.
+
+## Connecting over USB-C
+
+The USB-C port can connect the Pi directly to a PC, with no router needed:
+
+1. Use a USB-C **data** cable, since many charging cables have no data wires.
+2. The PC sees a new network adapter and a serial port. Connect with `ssh astro@10.55.0.1`.
+3. The serial port runs at 115200 baud.
+
+This port also powers the Pi, and a PC port may not supply enough, especially with a camera or other USB devices attached. If you see undervoltage warnings in `dmesg`, use a powered USB hub between the PC and the Pi, or power the Pi through the GPIO header with a regulated 5V supply.
+
+Per-device settings such as third-party DSI displays go in `astro-hardware.txt` on the boot partition.

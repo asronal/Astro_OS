@@ -1,0 +1,70 @@
+#!/bin/sh
+#
+# Connect to Wi-Fi if a network has been configured.
+#
+# To configure it from a PC, put wpa_supplicant.conf on the drive's boot
+# partition. It is moved to /data on the next boot, off the readable partition.
+#
+
+. /usr/lib/astro/storage.sh
+
+IFACE="wlan0"
+CONF="/data/config/wpa_supplicant.conf"
+BOOT_CONF="/boot/wpa_supplicant.conf"
+WPA_PIDFILE="/run/wpa_supplicant-${IFACE}.pid"
+DHCP_PIDFILE="/run/udhcpc-${IFACE}.pid"
+
+import_boot_conf() {
+	[ -b "${ASTRO_BOOT_PART}" ] || return
+	mount -t vfat "${ASTRO_BOOT_PART}" /boot 2> /dev/null || return
+	if [ -f "${BOOT_CONF}" ]; then
+		mkdir -p "$(dirname "${CONF}")"
+		# Files saved on Windows may have CRLF line endings
+		(umask 077 && tr -d '\r' < "${BOOT_CONF}" > "${CONF}") && rm -f "${BOOT_CONF}"
+	fi
+	umount /boot
+}
+
+start() {
+	import_boot_conf
+
+	if ! grep -q 'network=' "${CONF}" 2> /dev/null; then
+		echo "Wi-Fi: no network configured"
+		return 0
+	fi
+
+	# The driver loads asynchronously, so wlan0 may not exist yet
+	retries=15
+	while [ ! -e "/sys/class/net/${IFACE}" ] && [ "${retries}" -gt 0 ]; do
+		sleep 1
+		retries=$((retries - 1))
+	done
+
+	printf 'Starting Wi-Fi: '
+	if ! wpa_supplicant -B -D nl80211 -i "${IFACE}" -c "${CONF}" -P "${WPA_PIDFILE}"; then
+		echo "FAIL"
+		return 1
+	fi
+	# -b keeps retrying in the background, so networks that come into range later still connect
+	udhcpc -b -S -i "${IFACE}" -p "${DHCP_PIDFILE}" -x "hostname:$(hostname)" > /dev/null 2>&1
+	echo "OK"
+}
+
+stop() {
+	printf 'Stopping Wi-Fi: '
+	[ -f "${DHCP_PIDFILE}" ] && kill "$(cat "${DHCP_PIDFILE}")" 2> /dev/null
+	[ -f "${WPA_PIDFILE}" ] && kill "$(cat "${WPA_PIDFILE}")" 2> /dev/null
+	rm -f "${DHCP_PIDFILE}" "${WPA_PIDFILE}"
+	echo "OK"
+}
+
+case "$1" in
+	start|stop)
+		"$1";;
+	restart|reload)
+		stop
+		start;;
+	*)
+		echo "Usage: $0 {start|stop|restart|reload}"
+		exit 1
+esac

@@ -1,0 +1,58 @@
+#!/bin/sh
+#
+# Mount /data, growing it to fill the boot disk on first boot.
+#
+
+. /usr/lib/astro/storage.sh
+
+READY_MARKER="/data/.astro-data-ready"
+
+mount_data() {
+	mount -t ext4 -o noatime "${ASTRO_DATA_PART}" /data
+}
+
+# The marker is written last, so an interrupted first boot simply retries
+grow_data() {
+	echo "First boot: growing ${ASTRO_DATA_PART} to fill ${ASTRO_DISK}"
+	umount /data || return 1
+	parted -s "${ASTRO_DISK}" resizepart "${ASTRO_DATA_PART_NUM}" 100% || echo "parted FAILED"
+	e2fsck -fy "${ASTRO_DATA_PART}" || echo "e2fsck reported problems"
+	resize2fs "${ASTRO_DATA_PART}" || echo "resize2fs FAILED"
+	mount_data || return 1
+	mkdir -p /data/config /data/captures
+	chown 1000:1000 /data/captures
+	touch "${READY_MARKER}"
+}
+
+start() {
+	printf 'Mounting /data: '
+	if [ -z "${ASTRO_DISK}" ] || [ ! -b "${ASTRO_DATA_PART}" ]; then
+		echo "FAIL (data partition not found)"
+		return 1
+	fi
+	# Exit codes above 1 mean e2fsck could not fully repair the filesystem
+	e2fsck -p "${ASTRO_DATA_PART}" > /dev/null 2>&1
+	[ "$?" -gt 1 ] && echo "e2fsck reported problems on ${ASTRO_DATA_PART}"
+	if ! mount_data; then
+		echo "FAIL"
+		return 1
+	fi
+	echo "OK"
+	[ -e "${READY_MARKER}" ] || grow_data
+}
+
+stop() {
+	printf 'Unmounting /data: '
+	umount /data && echo "OK" || echo "FAIL"
+}
+
+case "$1" in
+	start|stop)
+		"$1";;
+	restart|reload)
+		stop
+		start;;
+	*)
+		echo "Usage: $0 {start|stop|restart|reload}"
+		exit 1
+esac

@@ -1,1 +1,1 @@
-include $(BR2_EXTERNAL_ASTRO_PATH)/package/astro-info/astro-info.mk
+include $(sort $(wildcard $(BR2_EXTERNAL_ASTRO_PATH)/package/*/*.mk))
