@@ -108,6 +108,13 @@ Astro OS is becoming a self-contained field computer for astronomy and astrophot
 | `/data` growing to fill the boot drive | Untested |
 | Booting from a USB drive | Untested |
 
+### In Development — Sky Calculations
+
+- `astro-core` library and `astro-sky` command-line tool
+- Sun, Moon and planet position, altitude, distance, magnitude, phase, and rise, transit and set times
+- Twilight times and best targets tonight
+- Checked against NASA JPL Horizons on the build PC: positions within 1 arcminute, rise and set within 3 minutes for the Sun and Jupiter, and within 5 minutes for the Moon
+
 ## Target
 
 - Raspberry Pi 4

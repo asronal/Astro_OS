@@ -1,0 +1,6 @@
+config BR2_PACKAGE_ASTRO_CORE
+	bool "astro-core"
+	depends on BR2_INSTALL_LIBSTDCPP
+	select BR2_PACKAGE_LIBNOVA
+	help
+	  Astro OS sky calculations, and the astro-sky command-line tool.

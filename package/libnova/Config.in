@@ -1,0 +1,6 @@
+config BR2_PACKAGE_LIBNOVA
+	bool "libnova"
+	help
+	  Celestial mechanics, astrometry and astrodynamics library.
+
+	  http://libnova.sourceforge.net

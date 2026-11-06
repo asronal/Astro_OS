@@ -1,0 +1,11 @@
+# NASA JPL Horizons rise/transit/set, refracted, Greenwich, UTC
+# body,type,utc
+Sun,r, 2026-Jun-21 03:41
+Sun,t, 2026-Jun-21 12:02
+Sun,s, 2026-Jun-21 20:23
+Moon,r, 2026-Jun-21 11:39
+Moon,t, 2026-Jun-21 17:51
+Moon,s, 2026-Jun-21 23:47
+Jupiter,r, 2026-Jun-21 06:03
+Jupiter,t, 2026-Jun-21 14:03
+Jupiter,s, 2026-Jun-21 22:03
