@@ -20,16 +20,13 @@ HOME_URL="https://github.com/asronal/Astro_OS"
 OS_RELEASE
 ln -sf ../usr/lib/os-release "${TARGET_DIR}/etc/os-release"
 
-cat > "${TARGET_DIR}/etc/motd" <<MOTD
+# The screen shown before login, on the serial console and any display.
+# tools/make-login-art.py draws it.
+sed "s/@VERSION@/${VERSION}/" "${BOARD_DIR}/issue.in" > "${TARGET_DIR}/etc/issue"
 
-      .        *            A S T R O   O S   ${VERSION}
-   *      .--.    .         An observatory in your hands
-       --( ++ )---o
-    .     '--'      *       Raspberry Pi 4  ·  Buildroot ${BUILDROOT_VERSION}
-
-  Type 'astro-info' for system details, or 'astro-sky --help' for tonight's sky.
-
-MOTD
+# The welcome after login is live, so see usr/lib/astro/welcome.sh
+rm -f "${TARGET_DIR}/etc/motd"
+echo "${VERSION}" > "${TARGET_DIR}/usr/lib/astro/version"
 
 mkdir -p "${TARGET_DIR}/boot" "${TARGET_DIR}/data"
 

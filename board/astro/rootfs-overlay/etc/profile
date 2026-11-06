@@ -1,5 +1,9 @@
 export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
 export EDITOR=nano
 export HISTSIZE=1000
-# Brass name and host, matching the touch interface
-export PS1='\[\e[38;5;179m\]\u@\h\[\e[0m\]:\w\$ '
+# Brass name and host, with the folder in teal, matching the touch interface
+export PS1='\[\e[1;38;5;179m\]\u\[\e[0;38;5;136m\]@\h \[\e[38;5;73m\]\w \[\e[38;5;223m\]\$\[\e[0m\] '
+alias ls='ls --color=auto'
+alias ll='ls -lh --color=auto'
+
+. /usr/lib/astro/welcome.sh

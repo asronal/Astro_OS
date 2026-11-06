@@ -1,11 +1,14 @@
 #!/bin/sh
 #
-# Boot the whole Astro OS image on an emulated Raspberry Pi 4, in this terminal.
-# It uses a copy of the image, so changes are lost each time unless --keep is used.
+# Boot the whole Astro OS image on an emulated Raspberry Pi 4, in a large window
+# of its own. It uses a copy of the image, so changes are lost each time unless
+# --keep is used.
 # Needs a finished build, and:
 #   sudo apt install --no-install-recommends qemu-system-arm device-tree-compiler
 #
-# Usage: tools/try-os.sh [--keep]
+# Usage: tools/try-os.sh [--keep] [--here]
+#   --keep: continue from the last run's disk
+#   --here: stay in this terminal, rather than opening a window
 #
 # Log in as root, password root (development images only).
 # To quit, press Ctrl+A and then X.
@@ -15,6 +18,24 @@
 #
 
 set -eu
+
+KEEP=no
+HERE=no
+for argument in "$@"; do
+	case "${argument}" in
+	--keep) KEEP=yes ;;
+	--here) HERE=yes ;;
+	*) echo "Usage: $0 [--keep] [--here]" >&2; exit 2 ;;
+	esac
+done
+
+# A roomy window in the same midnight and brass as the rest of Astro OS. Needs
+# xterm and a desktop, which WSLg provides, and otherwise stays in this terminal.
+if [ "${HERE}" = "no" ] && [ -n "${DISPLAY:-}" ] && command -v xterm > /dev/null; then
+	exec xterm -title "Astro OS" -u8 -fa "DejaVu Sans Mono" -fs 15 -geometry 96x34 \
+		-bg "#070a14" -fg "#e8e4d8" -cr "#e9b872" -b 18 +sb \
+		-e "$0" --here "$@"
+fi
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-${REPO_DIR}/../../build/pi4}"
@@ -37,7 +58,16 @@ if ! command -v fdtoverlay > /dev/null; then
 fi
 
 mkdir -p "$(dirname "${DISK}")"
-if [ "${1:-}" != "--keep" ] || [ ! -f "${DISK}" ]; then
+
+# Two copies writing to one disk would corrupt it. QEMU inherits this lock, which
+# is released when it exits.
+exec 9> "${DISK}.lock"
+if ! flock -n 9; then
+	echo "ERROR: Astro OS is already running from this disk. Close that window first." >&2
+	exit 1
+fi
+
+if [ "${KEEP}" != "yes" ] || [ ! -f "${DISK}" ]; then
 	cp "${IMAGES}/sdcard.img" "${DISK}"
 	# QEMU's emulated SD card must be a power-of-two size
 	truncate -s "${DISK_SIZE}" "${DISK}"

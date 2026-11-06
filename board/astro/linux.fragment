@@ -1,0 +1,6 @@
+# Larger console fonts. The kernel picks the best fit for each screen by itself:
+# Terminus 16x32 on a large HDMI display, and 10x18 on a small touch screen.
+CONFIG_FONTS=y
+CONFIG_FONT_8x16=y
+CONFIG_FONT_10x18=y
+CONFIG_FONT_TER16x32=y
