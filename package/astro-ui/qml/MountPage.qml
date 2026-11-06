@@ -12,148 +12,248 @@ Item {
         return 0
     }
     readonly property var selectedDriver: mount.drivers[driverIndex]
+    readonly property bool servoSelected: selectedDriver.binary === "indi_astro_servo"
 
     function degToHms(deg) {
         var hours = deg / 15.0
         var h = Math.floor(hours)
         var m = Math.floor((hours - h) * 60)
         var s = Math.floor(((hours - h) * 60 - m) * 60)
-        return h + "h " + m + "m " + s + "s"
+        return String(h).padStart(2, "0") + "h " + String(m).padStart(2, "0") + "m " + String(s).padStart(2, "0") + "s"
     }
 
-    Flickable {
+    function degToDms(deg) {
+        var sign = deg < 0 ? "−" : "+"
+        var a = Math.abs(deg)
+        var d = Math.floor(a)
+        var m = Math.floor((a - d) * 60)
+        var s = Math.floor(((a - d) * 60 - m) * 60)
+        return sign + String(d).padStart(2, "0") + "° " + String(m).padStart(2, "0") + "′ " + String(s).padStart(2, "0") + "″"
+    }
+
+    RowLayout {
         anchors.fill: parent
-        anchors.margins: 8
-        contentHeight: content.implicitHeight
-        clip: true
+        anchors.margins: 10
+        spacing: 10
 
         ColumnLayout {
-            id: content
-            width: parent.width
-            spacing: 8
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            spacing: 10
 
-            Text {
-                text: "Mount type"
-                color: theme.dim
-                font.pixelSize: 14
-            }
+            // Choosing and connecting a mount
+            Card {
+                Layout.fillWidth: true
+                Layout.preferredHeight: setup.implicitHeight + 22
+                ColumnLayout {
+                    id: setup
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 11
+                    spacing: 8
 
-            RowLayout {
-                spacing: 6
-                AstroButton {
-                    text: "<"
-                    onClicked: page.driverIndex = (page.driverIndex + mount.drivers.length - 1) % mount.drivers.length
-                }
-                Text {
-                    Layout.fillWidth: true
-                    horizontalAlignment: Text.AlignHCenter
-                    text: page.selectedDriver.label
-                    color: theme.text
-                    font.pixelSize: 17
-                    elide: Text.ElideRight
-                }
-                AstroButton {
-                    text: ">"
-                    onClicked: page.driverIndex = (page.driverIndex + 1) % mount.drivers.length
-                }
-                AstroButton {
-                    text: "Apply"
-                    onClicked: mount.applyProfile(page.selectedDriver.binary, portBox.text, mount.remoteAccess)
-                }
-            }
-
-            RowLayout {
-                visible: page.selectedDriver.serial
-                spacing: 8
-                Text { text: "Serial port"; color: theme.dim; font.pixelSize: 14 }
-                Rectangle {
-                    Layout.fillWidth: true
-                    height: 40
-                    color: theme.panel
-                    border.color: theme.line
-                    radius: 4
-                    TextInput {
-                        id: portBox
-                        anchors.fill: parent
-                        anchors.margins: 8
-                        verticalAlignment: TextInput.AlignVCenter
-                        text: mount.port
-                        color: theme.text
-                        font.pixelSize: 16
+                    AText {
+                        text: "MOUNT"
+                        color: theme.accent
+                        font.pixelSize: 10
+                        font.letterSpacing: 1.8
+                        weight: 600
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+                        AstroButton {
+                            glyph: "left"
+                            implicitWidth: 42
+                            implicitHeight: 40
+                            onClicked: page.driverIndex = (page.driverIndex + mount.drivers.length - 1) % mount.drivers.length
+                        }
+                        AText {
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
+                            text: page.selectedDriver.label
+                            font.pixelSize: 15
+                            weight: 500
+                            elide: Text.ElideRight
+                        }
+                        AstroButton {
+                            glyph: "right"
+                            implicitWidth: 42
+                            implicitHeight: 40
+                            onClicked: page.driverIndex = (page.driverIndex + 1) % mount.drivers.length
+                        }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: page.selectedDriver.serial
+                        spacing: 8
+                        AText { text: "Port"; color: theme.dim; font.pixelSize: 12 }
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 36
+                            radius: 8
+                            color: theme.background
+                            border.color: theme.line
+                            TextInput {
+                                id: portBox
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                verticalAlignment: TextInput.AlignVCenter
+                                text: mount.port
+                                color: theme.text
+                                font.family: theme.monoFamily
+                                font.pixelSize: 13
+                            }
+                        }
+                    }
+                    AText {
+                        visible: page.servoSelected
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: theme.dim
+                        font.pixelSize: 12
+                        text: "RC servos are for pointing and visual use, and aren't accurate enough to track long exposures."
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        AText {
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                            color: mount.mountConnected ? theme.good : theme.dim
+                            font.pixelSize: 12
+                            text: !mount.serverUp ? "Starting the device service…"
+                                : !mount.mountFound ? "Waiting for the driver…"
+                                : mount.deviceName + (mount.mountConnected ? " connected" : " ready")
+                        }
+                        AstroButton {
+                            text: "Apply"
+                            implicitHeight: 40
+                            onClicked: mount.applyProfile(page.selectedDriver.binary, portBox.text, mount.remoteAccess)
+                        }
+                        AstroButton {
+                            text: mount.mountConnected ? "Disconnect" : "Connect"
+                            style: mount.mountConnected ? "plain" : "primary"
+                            implicitHeight: 40
+                            enabled: mount.mountFound
+                            onClicked: mount.mountConnected ? mount.disconnectMount() : mount.connectMount()
+                        }
                     }
                 }
             }
 
-            RowLayout {
-                spacing: 8
-                Text {
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    color: theme.text
-                    font.pixelSize: 15
-                    text: !mount.serverUp ? "Starting the device service..."
-                        : !mount.mountFound ? "Waiting for the mount driver..."
-                        : mount.deviceName + (mount.mountConnected ? " connected" : " not connected")
-                }
-                AstroButton {
-                    text: mount.mountConnected ? "Disconnect" : "Connect"
-                    enabled: mount.mountFound
-                    onClicked: mount.mountConnected ? mount.disconnectMount() : mount.connectMount()
-                }
-            }
-
-            Text {
-                visible: mount.message.length > 0
+            // Where it's pointing
+            Card {
                 Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                color: theme.danger
-                font.pixelSize: 14
-                text: mount.message
-            }
+                Layout.fillHeight: true
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 11
+                    spacing: 2
 
-            Text {
-                visible: page.selectedDriver.binary === "indi_astro_servo"
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                color: theme.dim
-                font.pixelSize: 13
-                text: "RC servos are for pointing and visual use. They are not accurate enough to track during long exposures."
+                    AText {
+                        text: "POINTING AT"
+                        color: theme.accent
+                        font.pixelSize: 10
+                        font.letterSpacing: 1.8
+                        weight: 600
+                    }
+                    AText {
+                        Layout.topMargin: 4
+                        style: "display"
+                        weight: 600
+                        font.pixelSize: 22
+                        text: !mount.mountConnected ? "Not connected"
+                            : mount.parked ? "Parked"
+                            : mount.slewing ? "Slewing"
+                            : mount.tracking ? "Tracking" : "Stopped"
+                    }
+                    Item { Layout.fillHeight: true }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: false
+                        spacing: 22
+                        Column {
+                            spacing: 1
+                            AText { text: "Right ascension"; color: theme.dim; font.pixelSize: 11 }
+                            AText {
+                                text: mount.mountConnected ? page.degToHms(mount.ra) : "––h ––m ––s"
+                                style: "data"
+                                font.pixelSize: 20
+                            }
+                        }
+                        Column {
+                            spacing: 1
+                            AText { text: "Declination"; color: theme.dim; font.pixelSize: 11 }
+                            AText {
+                                text: mount.mountConnected ? page.degToDms(mount.dec) : "––° ––′ ––″"
+                                style: "data"
+                                font.pixelSize: 20
+                            }
+                        }
+                    }
+                    AText {
+                        visible: mount.message.length > 0
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                        color: theme.danger
+                        font.pixelSize: 12
+                        text: mount.message
+                    }
+                }
             }
+        }
 
-            Text {
-                visible: mount.mountConnected
-                color: theme.text
-                font.pixelSize: 16
-                text: "Pointing at RA " + page.degToHms(mount.ra) + "   Dec " + mount.dec.toFixed(2) + "°"
-            }
+        // Moving it
+        Card {
+            Layout.preferredWidth: 232
+            Layout.fillHeight: true
+            opacity: mount.mountConnected ? 1.0 : 0.45
+            enabled: mount.mountConnected
 
-            RowLayout {
-                visible: mount.mountConnected
-                spacing: 16
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 11
+                spacing: 10
+
+                AText {
+                    text: "MOVE"
+                    color: theme.accent
+                    font.pixelSize: 10
+                    font.letterSpacing: 1.8
+                    weight: 600
+                }
 
                 GridLayout {
+                    Layout.alignment: Qt.AlignHCenter
                     columns: 3
-                    rowSpacing: 4
-                    columnSpacing: 4
-                    Item { width: 1; height: 1 }
-                    AstroButton { text: "N"; onPressed: mount.moveStart("N"); onReleased: mount.moveStop() }
-                    Item { width: 1; height: 1 }
-                    AstroButton { text: "E"; onPressed: mount.moveStart("E"); onReleased: mount.moveStop() }
-                    AstroButton { text: "Stop"; onClicked: mount.abort() }
-                    AstroButton { text: "W"; onPressed: mount.moveStart("W"); onReleased: mount.moveStop() }
-                    Item { width: 1; height: 1 }
-                    AstroButton { text: "S"; onPressed: mount.moveStart("S"); onReleased: mount.moveStop() }
-                    Item { width: 1; height: 1 }
+                    rowSpacing: 5
+                    columnSpacing: 5
+                    Item { width: 56; height: 1 }
+                    AstroButton { implicitWidth: 56; implicitHeight: 52; glyph: "up"; onPressed: mount.moveStart("N"); onReleased: mount.moveStop() }
+                    Item { width: 56; height: 1 }
+                    AstroButton { implicitWidth: 56; implicitHeight: 52; glyph: "left"; onPressed: mount.moveStart("E"); onReleased: mount.moveStop() }
+                    AstroButton { implicitWidth: 56; implicitHeight: 52; glyph: "stop"; style: "danger"; onClicked: mount.abort() }
+                    AstroButton { implicitWidth: 56; implicitHeight: 52; glyph: "right"; onPressed: mount.moveStart("W"); onReleased: mount.moveStop() }
+                    Item { width: 56; height: 1 }
+                    AstroButton { implicitWidth: 56; implicitHeight: 52; glyph: "down"; onPressed: mount.moveStart("S"); onReleased: mount.moveStop() }
+                    Item { width: 56; height: 1 }
                 }
 
-                ColumnLayout {
+                Item { Layout.fillHeight: true }
+
+                RowLayout {
+                    Layout.fillWidth: true
                     spacing: 6
                     AstroButton {
-                        text: mount.tracking ? "Tracking on" : "Tracking off"
+                        Layout.fillWidth: true
+                        text: "Tracking"
                         active: mount.tracking
                         onClicked: mount.setTracking(!mount.tracking)
                     }
                     AstroButton {
+                        Layout.fillWidth: true
                         text: mount.parked ? "Unpark" : "Park"
                         onClicked: mount.parked ? mount.unpark() : mount.park()
                     }

@@ -134,6 +134,14 @@ QVariantMap SkyBackend::nightInfo() const
     map[QStringLiteral("astronomicalDusk")] = local_time(t.astronomical_dusk_jd);
     map[QStringLiteral("astronomicalDawn")] = local_time(t.astronomical_dawn_jd);
     map[QStringLiteral("sunrise")] = local_time(t.sunrise_jd);
+
+    double jd = astro::julian_now();
+    astro::BodyReport moon = astro::body_report(astro::Body::Moon, m_observer, jd);
+    astro::BodyReport later = astro::body_report(astro::Body::Moon, m_observer, jd + 0.5);
+    map[QStringLiteral("moonLit")] = moon.illuminated;
+    map[QStringLiteral("moonWaxing")] = later.illuminated > moon.illuminated;
+    map[QStringLiteral("moonRise")] = moon.horizon == astro::Horizon::RisesAndSets ? local_time(moon.rise_jd) : QStringLiteral("-");
+    map[QStringLiteral("moonSet")] = moon.horizon == astro::Horizon::RisesAndSets ? local_time(moon.set_jd) : QStringLiteral("-");
     return map;
 }
 

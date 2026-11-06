@@ -7,3 +7,6 @@ https://github.com/mattiaverga/OpenNGC, licensed under CC BY-SA 4.0.
 Filtered to Messier objects and objects of magnitude 11 and brighter.
 
 These derived files are also licensed under CC BY-SA 4.0.
+
+fonts/IBMPlex* are IBM Plex, and fonts/SpaceGrotesk.ttf is Space Grotesk. Both
+are under the SIL Open Font License 1.1. See fonts/OFL-*.txt.

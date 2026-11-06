@@ -95,6 +95,15 @@ Astro OS is becoming a self-contained field computer for astronomy and astrophot
 - Network time with `chrony`, CA certificates, filesystem tools
 - Version number generated from a single `VERSION` file
 
+## Testing
+
+Without a Pi, using QEMU:
+
+- Boots twice in a row on an emulated Pi 4, with `/data` growing and services starting.
+- Sky calculations match NASA JPL Horizons, running as ARM programs (179 checks).
+- The mount code passes 28 checks against INDI's telescope simulator, including GoTo, STOP, Sync and the Sun check.
+- The interface was driven over VNC through connecting, selecting a target, GoTo and tracking.
+
 ## Hardware Status
 
 | Item | Status |
@@ -107,8 +116,30 @@ Astro OS is becoming a self-contained field computer for astronomy and astrophot
 | GPU driver (`/dev/dri`) | Untested |
 | `/data` growing to fill the boot drive | Untested |
 | Booting from a USB drive | Untested |
+| Touch displays (HDMI and DSI) | Untested |
+| Real mounts, cameras and RC servos | Untested |
 
-### In Development — Sky Calculations
+### In Development — Astronomy System
+
+**Touch app**
+
+- Tonight: Moon phase, dark sky times, best targets, and the Sun, Moon and planets
+- Sky Chart: 8,900 stars and 895 deep-sky objects, with pan, pinch, search and tap for details
+- Mount: choice of 10 mount types through INDI, GoTo, Sync, tracking, parking and manual moves
+- Tools: field of view, image scale, exposure limits and a polar alignment dial
+- Red night mode, and a STOP button on every screen
+- GoTo refuses to point near the Sun or below the horizon
+
+**Hardware drivers, packaged but not yet tested on real hardware**
+
+- INDI 2.2.5, with its LX200 (including OnStep), Celestron, SynScan and iOptron drivers
+- Sky-Watcher direct control (EQMod), and DSLR and mirrorless cameras (gphoto)
+- A custom driver for RC servos on a PCA9685 board, for pointing and visual use only
+
+**Not yet in the app:** camera control. Also still to do: the Pi camera driver, read-only system, Wi-Fi hotspot and watchdog.
+
+
+**Sky calculations**
 
 - `astro-core` library and `astro-sky` command-line tool
 - Sun, Moon and planet position, altitude, distance, magnitude, phase, and rise, transit and set times

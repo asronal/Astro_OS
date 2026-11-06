@@ -21,17 +21,43 @@ Window {
     title: "Astro OS"
     color: theme.background
 
+    FontLoader { id: sansFont; source: "qrc:/data/fonts/IBMPlexSans.ttf" }
+    FontLoader { id: monoFont; source: "qrc:/data/fonts/IBMPlexMono-Regular.ttf" }
+    FontLoader { source: "qrc:/data/fonts/IBMPlexMono-Medium.ttf" }
+    FontLoader { id: displayFont; source: "qrc:/data/fonts/SpaceGrotesk.ttf" }
+
+    // Midnight and brass by day. At night every colour is red, because any other
+    // colour would spoil the eye's adaptation to the dark.
     QtObject {
         id: theme
         readonly property bool night: sky.nightMode
-        readonly property color background: night ? "#0a0000" : "#0b1020"
-        readonly property color panel: night ? "#1c0303" : "#182036"
-        readonly property color line: night ? "#4d0d0a" : "#33415f"
-        readonly property color text: night ? "#e0392c" : "#e8edf8"
-        readonly property color dim: night ? "#a12a20" : "#9aa8c4"
-        readonly property color accent: night ? "#a81f15" : "#3b6fd4"
-        readonly property color accentText: night ? "#ffc9c2" : "#ffffff"
-        readonly property color danger: night ? "#d81b10" : "#c8281e"
+        readonly property string sansFamily: sansFont.name
+        readonly property string monoFamily: monoFont.name
+        readonly property string displayFamily: displayFont.name
+        readonly property color background: night ? "#060000" : "#070a14"
+        readonly property color backgroundHigh: night ? "#100101" : "#0d1324"
+        readonly property color surface: night ? "#110202" : "#10162a"
+        readonly property color surfaceHigh: night ? "#1a0404" : "#171e36"
+        readonly property color line: night ? "#3c0b08" : "#262f4b"
+        readonly property color text: night ? "#e23a2c" : "#eef1f8"
+        readonly property color dim: night ? "#9a281e" : "#8e99b3"
+        readonly property color accent: night ? "#b92518" : "#e9b872"
+        readonly property color accentHigh: night ? "#d42e1f" : "#f3cb90"
+        readonly property color accentInk: night ? "#ffd5cf" : "#17110a"
+        readonly property color danger: night ? "#e01f12" : "#e5484d"
+        readonly property color dangerHigh: night ? "#ff3323" : "#f2666a"
+        readonly property color dangerInk: night ? "#ffe0dc" : "#ffffff"
+        readonly property color good: night ? "#c9301f" : "#76c4ba"
+        readonly property color moonLit: night ? "#c9301f" : "#e8e4d8"
+        readonly property color moonDark: night ? "#1a0404" : "#1b2138"
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: theme.backgroundHigh }
+            GradientStop { position: 0.6; color: theme.background }
+        }
     }
 
     ColumnLayout {
@@ -39,46 +65,77 @@ Window {
         anchors.bottomMargin: keyboard.active ? keyboard.height : 0
         spacing: 0
 
+        // Header
         RowLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: 44
-            Layout.leftMargin: 10
-            Layout.rightMargin: 6
-            spacing: 8
+            Layout.fillHeight: false
+            Layout.preferredHeight: 52
+            Layout.leftMargin: 14
+            Layout.rightMargin: 10
+            spacing: 10
 
-            Text {
-                text: "Astro OS"
-                color: theme.text
-                font.pixelSize: 18
-                font.bold: true
+            Logo { size: 30 }
+            AText {
+                text: "ASTRO"
+                style: "display"
+                weight: 600
+                font.pixelSize: 17
+                font.letterSpacing: 3.2
             }
-            Text {
-                Layout.fillWidth: true
-                text: mount.mountConnected
-                      ? (mount.slewing ? "Slewing" : (mount.tracking ? "Tracking" : "Mount ready"))
-                      : "No mount"
-                color: theme.dim
-                font.pixelSize: 14
-                elide: Text.ElideRight
+
+            Rectangle {
+                Layout.leftMargin: 6
+                Layout.preferredHeight: 26
+                Layout.preferredWidth: statusRow.implicitWidth + 20
+                radius: 13
+                color: theme.surface
+                border.color: theme.line
+                Row {
+                    id: statusRow
+                    anchors.centerIn: parent
+                    spacing: 7
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 7; height: 7; radius: 4
+                        color: mount.mountConnected ? (mount.slewing ? theme.accent : theme.good) : theme.dim
+                    }
+                    AText {
+                        text: !mount.mountConnected ? "No mount"
+                            : mount.slewing ? "Slewing"
+                            : mount.tracking ? "Tracking" : "Mount ready"
+                        color: theme.dim
+                        font.pixelSize: 12
+                        weight: 500
+                    }
+                }
             }
-            Text {
+
+            Item { Layout.fillWidth: true }
+
+            AText {
                 text: sky.clockText
-                color: theme.text
-                font.pixelSize: 18
+                style: "data"
+                font.pixelSize: 19
             }
             AstroButton {
-                text: sky.nightMode ? "Day" : "Night"
+                glyph: "eye"
+                style: "quiet"
+                active: sky.nightMode
+                implicitWidth: 42
                 implicitHeight: 38
                 onClicked: sky.nightMode = !sky.nightMode
             }
             AstroButton {
+                glyph: "stop"
                 text: "STOP"
-                danger: true
+                style: "danger"
                 implicitHeight: 38
                 implicitWidth: 92
                 onClicked: mount.abort()
             }
         }
+
+        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: theme.line }
 
         StackLayout {
             Layout.fillWidth: true
@@ -92,24 +149,95 @@ Window {
             SettingsPage { }
         }
 
+        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: theme.line; visible: !keyboard.active }
+
+        // Navigation
         RowLayout {
+            visible: !keyboard.active
             Layout.fillWidth: true
-            Layout.preferredHeight: 54
-            Layout.margins: 4
-            spacing: 4
+            Layout.fillHeight: false
+            Layout.preferredHeight: 58
+            spacing: 0
 
             Repeater {
-                model: ["Tonight", "Sky", "Mount", "Tools", "Settings"]
-                delegate: AstroButton {
+                model: [
+                    { label: "Tonight", glyph: "moon" },
+                    { label: "Sky", glyph: "sky" },
+                    { label: "Mount", glyph: "mount" },
+                    { label: "Tools", glyph: "tools" },
+                    { label: "Settings", glyph: "settings" }
+                ]
+                delegate: Item {
+                    id: tab
                     required property int index
-                    required property string modelData
+                    required property var modelData
+                    readonly property bool current: root.page === index
                     Layout.fillWidth: true
-                    text: modelData
-                    active: root.page === index
-                    onClicked: root.page = index
+                    Layout.fillHeight: true
+
+                    Rectangle {
+                        anchors.top: parent.top
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: 34
+                        height: 2
+                        radius: 1
+                        color: theme.accent
+                        visible: tab.current
+                    }
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: 2
+                        Glyph {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            name: tab.modelData.glyph
+                            size: 22
+                            tint: tab.current ? theme.accent : theme.dim
+                        }
+                        AText {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: tab.modelData.label
+                            font.pixelSize: 11
+                            weight: tab.current ? 600 : 400
+                            color: tab.current ? theme.accent : theme.dim
+                        }
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: root.page = tab.index
+                    }
                 }
             }
         }
+    }
+
+    // A brief branded start
+    Rectangle {
+        id: splash
+        anchors.fill: parent
+        color: theme.background
+        z: 10
+        Column {
+            anchors.centerIn: parent
+            spacing: 14
+            Logo { anchors.horizontalCenter: parent.horizontalCenter; size: 84 }
+            AText {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "ASTRO"
+                style: "display"
+                weight: 600
+                font.pixelSize: 30
+                font.letterSpacing: 8
+            }
+            AText {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "An observatory in your hands"
+                color: theme.dim
+                font.pixelSize: 13
+            }
+        }
+        NumberAnimation on opacity { id: splashFade; running: false; to: 0; duration: 500 }
+        onOpacityChanged: if (opacity === 0) visible = false
+        Timer { interval: 1300; running: true; onTriggered: splashFade.start() }
     }
 
     InputPanel {

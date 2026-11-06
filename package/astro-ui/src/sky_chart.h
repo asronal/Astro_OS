@@ -54,7 +54,8 @@ signals:
 
 private:
     bool project(double az, double alt, QPointF* point) const;
-    void draw_ground(QPainter* painter, const QColor& color) const;
+    void draw_ground(QPainter* painter, const QColor& color, const QColor& line) const;
+    void draw_grid(QPainter* painter, const QColor& color) const;
     void equatorial_to_screen_inputs(double* lst_rad, double* sin_lat, double* cos_lat) const;
 
     SkyBackend* m_sky;

@@ -21,16 +21,14 @@ OS_RELEASE
 ln -sf ../usr/lib/os-release "${TARGET_DIR}/etc/os-release"
 
 cat > "${TARGET_DIR}/etc/motd" <<MOTD
-========================================
-             Astro OS
-        Embedded Linux System
-========================================
 
-Version: ${VERSION}
-Target:  Raspberry Pi 4
-Buildroot: ${BUILDROOT_VERSION}
+      .        *            A S T R O   O S   ${VERSION}
+   *      .--.    .         An observatory in your hands
+       --( ++ )---o
+    .     '--'      *       Raspberry Pi 4  ·  Buildroot ${BUILDROOT_VERSION}
 
-Type 'astro-info' for system information.
+  Type 'astro-info' for system details, or 'astro-sky --help' for tonight's sky.
+
 MOTD
 
 mkdir -p "${TARGET_DIR}/boot" "${TARGET_DIR}/data"

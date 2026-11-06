@@ -52,63 +52,84 @@ Item {
         }
     }
 
-    Column {
+    // Zoom
+    Card {
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.margins: 6
-        spacing: 6
-        AstroButton { text: "+"; width: 56; onClicked: chart.fieldOfView = chart.fieldOfView / 1.5 }
-        AstroButton { text: "−"; width: 56; onClicked: chart.fieldOfView = chart.fieldOfView * 1.5 }
+        anchors.margins: 10
+        width: 46
+        height: 92
+        Column {
+            anchors.fill: parent
+            AstroButton { width: 46; height: 46; style: "quiet"; glyph: "plus"; onClicked: chart.fieldOfView = chart.fieldOfView / 1.5 }
+            AstroButton { width: 46; height: 46; style: "quiet"; glyph: "minus"; onClicked: chart.fieldOfView = chart.fieldOfView * 1.5 }
+        }
     }
 
-    Rectangle {
+    // Search
+    Card {
         anchors.left: parent.left
         anchors.top: parent.top
-        anchors.margins: 6
-        width: Math.min(parent.width - 80, 320)
-        height: searchColumn.implicitHeight + 8
-        color: theme.panel
-        border.color: theme.line
-        radius: 6
+        anchors.margins: 10
+        width: Math.min(parent.width - 80, 300)
+        height: searchColumn.implicitHeight + 6
 
         Column {
             id: searchColumn
-            anchors.fill: parent
-            anchors.margins: 4
-            spacing: 2
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: 3
 
-            TextInput {
-                id: searchBox
+            Row {
                 width: parent.width
                 height: 34
-                verticalAlignment: TextInput.AlignVCenter
-                color: theme.text
-                font.pixelSize: 16
-                inputMethodHints: Qt.ImhNoPredictiveText
-                onTextChanged: page.searchResults = sky.search(text).slice(0, 5)
+                leftPadding: 8
+                spacing: 7
+                Glyph {
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: "search"
+                    size: 17
+                    tint: theme.dim
+                }
+                TextInput {
+                    id: searchBox
+                    width: parent.width - 42
+                    height: parent.height
+                    verticalAlignment: TextInput.AlignVCenter
+                    color: theme.text
+                    font.family: theme.sansFamily
+                    font.pixelSize: 14
+                    inputMethodHints: Qt.ImhNoPredictiveText
+                    onTextChanged: page.searchResults = sky.search(text).slice(0, 5)
 
-                Text {
-                    anchors.fill: parent
-                    verticalAlignment: Text.AlignVCenter
-                    text: "Search: Mars, M31, Vega"
-                    color: theme.dim
-                    font.pixelSize: 15
-                    visible: searchBox.text.length === 0
+                    AText {
+                        anchors.fill: parent
+                        verticalAlignment: Text.AlignVCenter
+                        text: "Search Mars, M31, Vega"
+                        color: theme.dim
+                        font.pixelSize: 14
+                        visible: searchBox.text.length === 0
+                    }
                 }
             }
 
             Repeater {
                 model: page.searchResults
-                delegate: Text {
+                delegate: Item {
                     required property var modelData
                     width: searchColumn.width
-                    height: 36
-                    verticalAlignment: Text.AlignVCenter
-                    elide: Text.ElideRight
-                    color: theme.text
-                    font.pixelSize: 15
-                    text: modelData.name
-
+                    height: 38
+                    Rectangle { width: parent.width; height: 1; color: theme.line }
+                    AText {
+                        anchors.fill: parent
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 10
+                        verticalAlignment: Text.AlignVCenter
+                        elide: Text.ElideRight
+                        font.pixelSize: 14
+                        text: modelData.name
+                    }
                     MouseArea {
                         anchors.fill: parent
                         onClicked: {
@@ -124,53 +145,52 @@ Item {
         }
     }
 
-    Rectangle {
+    // The selected object
+    Card {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.margins: 6
-        height: details.implicitHeight + 12
+        anchors.margins: 10
+        height: 64
         visible: root.target.name !== undefined
-        color: theme.panel
-        border.color: theme.line
-        radius: 6
 
         RowLayout {
-            id: details
             anchors.fill: parent
-            anchors.margins: 6
-            spacing: 8
+            anchors.margins: 10
+            spacing: 10
 
             Column {
                 Layout.fillWidth: true
-                Text {
+                spacing: 2
+                AText {
                     width: parent.width
                     elide: Text.ElideRight
-                    color: theme.text
                     font.pixelSize: 16
-                    font.bold: true
+                    weight: 600
                     text: root.target.name || ""
                 }
-                Text {
+                AText {
                     width: parent.width
                     elide: Text.ElideRight
                     color: page.result.length > 0 ? theme.danger : theme.dim
-                    font.pixelSize: 13
+                    font.pixelSize: 12
                     text: page.result.length > 0 ? page.result
-                        : (root.target.type ? root.target.type + "   " : "")
-                          + (root.target.mag !== undefined ? "Mag " + Number(root.target.mag).toFixed(1) + "   " : "")
+                        : (root.target.type ? root.target.type + "  ·  " : "")
+                          + (root.target.mag !== undefined ? "Mag " + Number(root.target.mag).toFixed(1) + "  ·  " : "")
                           + (root.target.alt !== undefined ? "Alt " + Number(root.target.alt).toFixed(1) + "°" : "")
                 }
-            }
-            AstroButton {
-                text: "GoTo"
-                enabled: mount.mountConnected
-                onClicked: page.result = mount.gotoTarget(root.target.ra, root.target.dec, root.solarFilterFitted)
             }
             AstroButton {
                 text: "Sync"
                 enabled: mount.mountConnected
                 onClicked: page.result = mount.syncTarget(root.target.ra, root.target.dec)
+            }
+            AstroButton {
+                text: "GoTo"
+                style: "primary"
+                implicitWidth: 88
+                enabled: mount.mountConnected
+                onClicked: page.result = mount.gotoTarget(root.target.ra, root.target.dec, root.solarFilterFitted)
             }
         }
     }

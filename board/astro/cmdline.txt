@@ -1,1 +1,1 @@
-root=PARTUUID=41535452-02 rootwait console=tty1 console=ttyAMA0,115200
+root=PARTUUID=41535452-02 rootwait console=tty1 console=ttyAMA0,115200 quiet logo.nologo vt.global_cursor_default=0

@@ -36,52 +36,133 @@ Item {
         property string label
         property double value
         property double step
+        property int decimals: 0
         signal changed(double updated)
-        spacing: 6
-        Text { Layout.preferredWidth: 150; text: label; color: theme.dim; font.pixelSize: 14 }
-        AstroButton { text: "−"; onClicked: changed(Math.max(step, value - step)) }
-        Text { Layout.preferredWidth: 70; horizontalAlignment: Text.AlignHCenter; text: value.toFixed(1); color: theme.text; font.pixelSize: 16 }
-        AstroButton { text: "+"; onClicked: changed(value + step) }
+        Layout.fillWidth: true
+        spacing: 4
+        AText { Layout.fillWidth: true; text: label; color: theme.dim; font.pixelSize: 12 }
+        AstroButton { implicitWidth: 38; implicitHeight: 36; glyph: "minus"; onClicked: changed(Math.max(step, value - step)) }
+        AText {
+            Layout.preferredWidth: 54
+            horizontalAlignment: Text.AlignHCenter
+            text: value.toFixed(decimals)
+            style: "data"
+            font.pixelSize: 14
+        }
+        AstroButton { implicitWidth: 38; implicitHeight: 36; glyph: "plus"; onClicked: changed(value + step) }
     }
 
-    Flickable {
+    component Result: Column {
+        property string label
+        property string value
+        spacing: 0
+        AText { text: label; color: theme.dim; font.pixelSize: 11 }
+        AText { text: value; style: "data"; font.pixelSize: 17 }
+    }
+
+    RowLayout {
         anchors.fill: parent
-        anchors.margins: 8
-        contentHeight: content.implicitHeight
-        clip: true
+        anchors.margins: 10
+        spacing: 10
+
+        Card {
+            Layout.preferredWidth: 306
+            Layout.fillHeight: true
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 11
+                spacing: 4
+                AText {
+                    text: "YOUR EQUIPMENT"
+                    color: theme.accent
+                    font.pixelSize: 10
+                    font.letterSpacing: 1.8
+                    weight: 600
+                }
+                Item { Layout.fillHeight: true }
+                Setting { label: "Focal length, mm"; value: page.focalLength; step: 50; onChanged: (updated) => page.focalLength = updated }
+                Setting { label: "Aperture, mm"; value: page.aperture; step: 10; onChanged: (updated) => page.aperture = updated }
+                Setting { label: "Sensor width, mm"; value: page.sensorWidth; step: 0.5; decimals: 1; onChanged: (updated) => page.sensorWidth = updated }
+                Setting { label: "Sensor height, mm"; value: page.sensorHeight; step: 0.5; decimals: 1; onChanged: (updated) => page.sensorHeight = updated }
+                Setting { label: "Pixel size, µm"; value: page.pixelSize; step: 0.1; decimals: 1; onChanged: (updated) => page.pixelSize = updated }
+                Item { Layout.fillHeight: true }
+            }
+        }
 
         ColumnLayout {
-            id: content
-            width: parent.width
-            spacing: 6
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            spacing: 10
 
-            Text { text: "Telescope and camera"; color: theme.text; font.pixelSize: 16; font.bold: true }
-            Setting { label: "Focal length (mm)"; value: page.focalLength; step: 50; onChanged: (updated) => page.focalLength = updated }
-            Setting { label: "Aperture (mm)"; value: page.aperture; step: 10; onChanged: (updated) => page.aperture = updated }
-            Setting { label: "Sensor width (mm)"; value: page.sensorWidth; step: 1; onChanged: (updated) => page.sensorWidth = updated }
-            Setting { label: "Sensor height (mm)"; value: page.sensorHeight; step: 1; onChanged: (updated) => page.sensorHeight = updated }
-            Setting { label: "Pixel size (µm)"; value: page.pixelSize; step: 0.1; onChanged: (updated) => page.pixelSize = updated }
-
-            Text {
+            Card {
                 Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                color: theme.text
-                font.pixelSize: 15
-                text: "Field of view " + page.fovWidth.toFixed(2) + "° × " + page.fovHeight.toFixed(2) + "°\n"
-                      + "Image scale " + page.imageScale.toFixed(2) + " arcsec/pixel, f/" + page.fRatio.toFixed(1) + "\n"
-                      + "Longest exposure without tracking: " + page.rule500.toFixed(1) + " s (500 rule), "
-                      + page.npf.toFixed(1) + " s (NPF rule, sharper)"
+                Layout.preferredHeight: 118
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 11
+                    spacing: 6
+                    AText {
+                        text: "WHAT YOU'LL GET"
+                        color: theme.accent
+                        font.pixelSize: 10
+                        font.letterSpacing: 1.8
+                        weight: 600
+                    }
+                    GridLayout {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        columns: 3
+                        rowSpacing: 2
+                        columnSpacing: 14
+                        Result { label: "Field of view"; value: page.fovWidth.toFixed(2) + "×" + page.fovHeight.toFixed(2) + "°" }
+                        Result { label: "Image scale"; value: page.imageScale.toFixed(2) + "″/px" }
+                        Result { label: "Focal ratio"; value: "f/" + page.fRatio.toFixed(1) }
+                        Result { label: "No tracking (500)"; value: page.rule500.toFixed(1) + " s" }
+                        Result { label: "No tracking (NPF)"; value: page.npf.toFixed(1) + " s" }
+                    }
+                }
             }
 
-            Text { text: "Polar alignment"; color: theme.text; font.pixelSize: 16; font.bold: true; Layout.topMargin: 8 }
-            Text {
+            Card {
                 Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                color: theme.dim
-                font.pixelSize: 14
-                text: sky.locationSet
-                      ? "Polaris hour angle is " + (page.polarAngle / 15).toFixed(2) + " h. In a polar scope with 0 h at the top, turning clockwise as hours increase, place Polaris at that position. Check how your own polar scope is marked."
-                      : "Set your location in Settings first."
+                Layout.fillHeight: true
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: 11
+                    spacing: 12
+                    PolarDial {
+                        Layout.preferredWidth: size
+                        Layout.preferredHeight: size
+                        size: 118
+                        hourAngle: page.polarAngle
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 3
+                        AText {
+                            text: "POLAR ALIGNMENT"
+                            color: theme.accent
+                            font.pixelSize: 10
+                            font.letterSpacing: 1.8
+                            weight: 600
+                        }
+                        AText {
+                            visible: sky.locationSet
+                            text: (page.polarAngle / 15).toFixed(2) + " h"
+                            style: "data"
+                            font.pixelSize: 22
+                        }
+                        AText {
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            color: theme.dim
+                            font.pixelSize: 12
+                            text: sky.locationSet
+                                  ? "Polaris's hour angle, shown as a clock with 0 h at the top. Check how your own polar scope is marked."
+                                  : "Set your location in Settings first."
+                        }
+                    }
+                }
             }
         }
     }

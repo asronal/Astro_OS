@@ -21,12 +21,22 @@ qt_add_executable(astro-ui
 
 qt_add_resources(astro-ui "qml" PREFIX "/" FILES
     qml/Main.qml
+    qml/AText.qml
     qml/AstroButton.qml
+    qml/Card.qml
+    qml/Glyph.qml
+    qml/Logo.qml
+    qml/MoonDisc.qml
+    qml/PolarDial.qml
     qml/TonightPage.qml
     qml/SkyPage.qml
     qml/MountPage.qml
     qml/ToolsPage.qml
     qml/SettingsPage.qml
+    data/fonts/IBMPlexSans.ttf
+    data/fonts/IBMPlexMono-Regular.ttf
+    data/fonts/IBMPlexMono-Medium.ttf
+    data/fonts/SpaceGrotesk.ttf
 )
 
 target_include_directories(astro-ui PRIVATE ${INDI_INCLUDE_DIR}/libindi)
@@ -36,7 +46,7 @@ target_link_libraries(astro-ui PRIVATE
 )
 
 install(TARGETS astro-ui RUNTIME DESTINATION bin)
-install(FILES data/stars.csv data/deepsky.csv data/ATTRIBUTION DESTINATION share/astro)
+install(FILES data/stars.csv data/deepsky.csv data/ATTRIBUTION data/fonts/OFL-IBMPlex.txt data/fonts/OFL-SpaceGrotesk.txt DESTINATION share/astro)
 
 # Tests that run the real code against INDI's simulators. See tools/try-app.sh
 option(ASTRO_UI_BUILD_TESTS "Build tests" OFF)
@@ -47,8 +57,7 @@ if(ASTRO_UI_BUILD_TESTS)
 
     qt_add_executable(ui_screens tests/ui_screens.cpp src/catalog.cpp src/sky_backend.cpp src/sky_chart.cpp src/mount_client.cpp)
     qt_add_resources(ui_screens "qml" PREFIX "/" FILES
-        qml/Main.qml qml/AstroButton.qml qml/TonightPage.qml qml/SkyPage.qml
-        qml/MountPage.qml qml/ToolsPage.qml qml/SettingsPage.qml)
+        qml/Main.qml qml/AText.qml qml/AstroButton.qml qml/Card.qml qml/Glyph.qml qml/Logo.qml qml/MoonDisc.qml qml/PolarDial.qml qml/TonightPage.qml qml/SkyPage.qml qml/MountPage.qml qml/ToolsPage.qml qml/SettingsPage.qml data/fonts/IBMPlexSans.ttf data/fonts/IBMPlexMono-Regular.ttf data/fonts/IBMPlexMono-Medium.ttf data/fonts/SpaceGrotesk.ttf)
     target_include_directories(ui_screens PRIVATE src ${INDI_INCLUDE_DIR}/libindi)
     target_link_libraries(ui_screens PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick
         ${ASTRO_CORE_LIBRARY} ${NOVA_LIBRARY} ${INDICLIENT_LIBRARY})

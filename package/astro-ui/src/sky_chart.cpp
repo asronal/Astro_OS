@@ -2,6 +2,7 @@
 
 #include <QPainter>
 #include <QPainterPath>
+#include <QRadialGradient>
 #include <QtMath>
 
 #include <algorithm>
@@ -177,15 +178,22 @@ void SkyChart::equatorial_to_screen_inputs(double* lst_rad, double* sin_lat, dou
 
 void SkyChart::paint(QPainter* painter)
 {
-    QColor background = m_night_mode ? QColor(10, 0, 0) : QColor(5, 8, 22);
-    QColor star = m_night_mode ? QColor(210, 40, 30) : QColor(235, 240, 255);
-    QColor label = m_night_mode ? QColor(170, 30, 25) : QColor(160, 190, 230);
-    QColor deep_sky = m_night_mode ? QColor(150, 30, 20) : QColor(120, 220, 170);
-    QColor body_color = m_night_mode ? QColor(255, 70, 50) : QColor(255, 210, 110);
-    QColor ground = m_night_mode ? QColor(45, 5, 5) : QColor(26, 34, 30);
+    // Midnight and brass by day, and red only at night to protect dark adaptation
+    QColor background = m_night_mode ? QColor(8, 0, 0) : QColor(5, 8, 18);
+    QColor background_glow = m_night_mode ? QColor(20, 2, 2) : QColor(14, 22, 44);
+    QColor star = m_night_mode ? QColor(214, 44, 32) : QColor(238, 241, 250);
+    QColor label = m_night_mode ? QColor(168, 34, 26) : QColor(150, 162, 190);
+    QColor deep_sky = m_night_mode ? QColor(150, 30, 22) : QColor(118, 196, 186);
+    QColor body_color = m_night_mode ? QColor(255, 74, 54) : QColor(233, 184, 114);
+    QColor ground = m_night_mode ? QColor(30, 3, 3) : QColor(11, 15, 24);
+    QColor horizon_line = m_night_mode ? QColor(110, 20, 14) : QColor(120, 98, 66);
+    QColor grid = m_night_mode ? QColor(60, 10, 8) : QColor(34, 44, 72);
     QPointF point;
 
-    painter->fillRect(boundingRect(), background);
+    QRadialGradient glow(width() / 2.0, height() * 0.9, std::max(width(), height()));
+    glow.setColorAt(0.0, background_glow);
+    glow.setColorAt(1.0, background);
+    painter->fillRect(boundingRect(), glow);
     if (!m_sky)
         return;
 
@@ -198,7 +206,8 @@ void SkyChart::paint(QPainter* painter)
     double alt;
     equatorial_to_screen_inputs(&lst_rad, &sin_lat, &cos_lat);
 
-    draw_ground(painter, ground);
+    draw_grid(painter, grid);
+    draw_ground(painter, ground, horizon_line);
 
     // Draw only the stars visible at this zoom level, brightest first
     double mag_limit = std::clamp(7.0 - m_fov / 45.0, 3.5, 6.5);
@@ -211,6 +220,14 @@ void SkyChart::paint(QPainter* painter)
         if (alt < -1.0 || !project(az, alt, &point) || !boundingRect().contains(point))
             continue;
         double r = star_radius(s.mag);
+        // A soft halo makes the bright stars stand out
+        if (s.mag < 2.0) {
+            QColor halo = star;
+            halo.setAlpha(46);
+            painter->setBrush(halo);
+            painter->drawEllipse(point, r * 2.4, r * 2.4);
+            painter->setBrush(star);
+        }
         painter->drawEllipse(point, r, r);
     }
 
@@ -253,7 +270,11 @@ void SkyChart::paint(QPainter* painter)
         if (r.alt_deg < -1.0 || !project(r.az_deg, r.alt_deg, &point) || !boundingRect().contains(point))
             continue;
         double size = (b == astro::Body::Sun || b == astro::Body::Moon) ? 8.0 : 5.0;
+        QColor body_halo = body_color;
+        body_halo.setAlpha(60);
         painter->setPen(Qt::NoPen);
+        painter->setBrush(body_halo);
+        painter->drawEllipse(point, size * 1.9, size * 1.9);
         painter->setBrush(body_color);
         painter->drawEllipse(point, size, size);
         painter->setPen(body_color);
@@ -278,9 +299,18 @@ void SkyChart::paint(QPainter* painter)
         fast_horizontal(m_target.value(QStringLiteral("ra")).toDouble(), m_target.value(QStringLiteral("dec")).toDouble(),
                         lst_rad, sin_lat, cos_lat, &az, &alt);
         if (project(az, alt, &point) && boundingRect().contains(point)) {
-            painter->setPen(QPen(body_color, 2.0));
+            // Corner brackets, like a viewfinder
+            painter->setPen(QPen(body_color, 1.6));
             painter->setBrush(Qt::NoBrush);
-            painter->drawEllipse(point, 12.0, 12.0);
+            const double o = 15.0;
+            const double l = 6.0;
+            for (double sx : {-1.0, 1.0}) {
+                for (double sy : {-1.0, 1.0}) {
+                    QPointF corner = point + QPointF(sx * o, sy * o);
+                    painter->drawLine(corner, corner - QPointF(sx * l, 0));
+                    painter->drawLine(corner, corner - QPointF(0, sy * l));
+                }
+            }
         }
     }
 
@@ -297,7 +327,7 @@ void SkyChart::paint(QPainter* painter)
     }
 }
 
-void SkyChart::draw_ground(QPainter* painter, const QColor& color) const
+void SkyChart::draw_ground(QPainter* painter, const QColor& color, const QColor& line) const
 {
     // In this projection the horizon is a circle. It encloses the sky when the
     // view is centred above the horizon, and the ground when centred below it.
@@ -323,7 +353,44 @@ void SkyChart::draw_ground(QPainter* painter, const QColor& color) const
     painter->setBrush(color);
     painter->setClipRect(boundingRect());
     painter->drawPath(ground);
+    painter->setPen(QPen(line, 1.2));
+    painter->setBrush(Qt::NoBrush);
+    painter->drawPolygon(horizon);
     painter->setClipping(false);
+}
+
+void SkyChart::draw_grid(QPainter* painter, const QColor& color) const
+{
+    QPointF point;
+    QPointF previous;
+    bool have_previous;
+
+    painter->setPen(QPen(color, 1.0));
+    painter->setBrush(Qt::NoBrush);
+
+    // Altitude circles
+    for (double alt = 30.0; alt < 90.0; alt += 30.0) {
+        have_previous = false;
+        for (double az = 0.0; az <= 360.0; az += 3.0) {
+            bool visible = project(az, alt, &point);
+            if (visible && have_previous)
+                painter->drawLine(previous, point);
+            previous = point;
+            have_previous = visible;
+        }
+    }
+
+    // Azimuth lines
+    for (double az = 0.0; az < 360.0; az += 45.0) {
+        have_previous = false;
+        for (double alt = 0.0; alt <= 90.0; alt += 3.0) {
+            bool visible = project(az, alt, &point);
+            if (visible && have_previous)
+                painter->drawLine(previous, point);
+            previous = point;
+            have_previous = visible;
+        }
+    }
 }
 
 QVariantMap SkyChart::objectAt(double x, double y) const
