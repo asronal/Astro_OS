@@ -25,6 +25,7 @@ Item {
                 font.family: theme.monoFamily
                 font.pixelSize: 14
                 inputMethodHints: Qt.ImhFormattedNumbersOnly
+                activeFocusOnTab: true
             }
         }
     }
@@ -35,7 +36,27 @@ Item {
         weight: 600
     }
 
+    // The keyboard can move the focus off the bottom, so follow it
+    Connections {
+        target: root
+        function onActiveFocusItemChanged() {
+            var item = root.activeFocusItem
+            if (!item || !page.visible)
+                return
+            for (var parentItem = item.parent; parentItem && parentItem !== content; parentItem = parentItem.parent) { }
+            if (!parentItem)
+                return
+            var top = item.mapToItem(content, 0, 0).y
+            var bottom = top + item.height
+            if (top - 8 < settingsScroll.contentY)
+                settingsScroll.contentY = Math.max(0, top - 8)
+            else if (bottom + 8 > settingsScroll.contentY + settingsScroll.height)
+                settingsScroll.contentY = bottom + 8 - settingsScroll.height
+        }
+    }
+
     Flickable {
+        id: settingsScroll
         objectName: "settingsScroll"
         anchors.fill: parent
         anchors.margins: 10
@@ -339,6 +360,34 @@ Item {
                         color: theme.danger
                         font.pixelSize: 12
                         text: ""
+                    }
+                }
+            }
+
+            Card {
+                Layout.columnSpan: 2
+                Layout.fillWidth: true
+                Layout.preferredHeight: 66
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: 11
+                    spacing: 12
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 3
+                        Heading { text: "Keyboard and mouse" }
+                        AText {
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                            color: theme.dim
+                            font.pixelSize: 12
+                            text: "Everything also works without a touch screen. Space is STOP."
+                        }
+                    }
+                    AstroButton {
+                        objectName: "showKeysButton"
+                        text: "Show the keys"
+                        onClicked: root.helpOpen = true
                     }
                 }
             }

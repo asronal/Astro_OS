@@ -26,7 +26,17 @@ while true; do
 	if display_connected; then
 		weston --continue-without-input
 	elif [ "${ALLOW_VNC}" = "yes" ]; then
-		QT_QPA_PLATFORM="vnc:size=800x480" QT_QUICK_BACKEND=software /usr/bin/astro-ui
+		QT_QPA_PLATFORM="vnc:size=800x480" QT_QUICK_BACKEND=software /usr/bin/astro-ui &
+		app=$!
+		# A display plugged in later takes over, as otherwise VNC would keep running
+		while kill -0 "${app}" 2> /dev/null; do
+			if display_connected; then
+				kill "${app}"
+				wait "${app}"
+				break
+			fi
+			sleep 3
+		done
 	fi
 	sleep 3
 done

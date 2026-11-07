@@ -94,6 +94,33 @@ static void test_cycling(SkyBackend& sky, SkyChart& chart)
     check(elsewhere.isEmpty() || elsewhere.value(QStringLiteral("cycleIndex")).toInt() == 1, QStringLiteral("a tap elsewhere starts a new cycle"));
 }
 
+// What's under the pointer stays there while zooming, anywhere in the view
+static void test_zoom_at_pointer(SkyChart& chart)
+{
+    chart.setTimeOffsetHours(0.0);
+    const struct { double az; double alt; double fov; double x; double y; double factor; } cases[] = {
+        {180.0, 45.0, 90.0, 650.0, 120.0, 0.8},
+        {180.0, 45.0, 90.0, 120.0, 400.0, 0.5},
+        {60.0, 20.0, 30.0, 700.0, 300.0, 1.25},
+        {300.0, 70.0, 10.0, 200.0, 100.0, 0.8},
+    };
+    for (const auto& c : cases) {
+        chart.setCenterAz(c.az);
+        chart.setCenterAlt(c.alt);
+        chart.setFieldOfView(c.fov);
+        chart::View before = chart::make_view(chart.centerAz(), chart.centerAlt(), chart.fieldOfView(), chart.width(), chart.height());
+        double az, alt, x, y;
+        chart::unproject(before, c.x, c.y, &az, &alt);
+
+        chart.zoomAt(c.x, c.y, c.factor);
+        check(std::fabs(chart.fieldOfView() - c.fov * c.factor) < 1e-9, QStringLiteral("zooming changes the field of view"));
+        chart::View after = chart::make_view(chart.centerAz(), chart.centerAlt(), chart.fieldOfView(), chart.width(), chart.height());
+        chart::project(after, az, alt, &x, &y);
+        double moved = std::hypot(x - c.x, y - c.y);
+        check(moved < 2.0, QStringLiteral("the sky under the pointer moved %1 pixels").arg(moved));
+    }
+}
+
 static void test_hidden_objects(SkyBackend& sky, SkyChart& chart)
 {
     Q_UNUSED(sky);
@@ -302,6 +329,7 @@ int main(int argc, char* argv[])
     chart.setShowAtmosphere(false);
 
     test_cycling(sky, chart);
+    test_zoom_at_pointer(chart);
     test_hidden_objects(sky, chart);
     test_preview_never_reaches_the_mount(sky, chart);
     test_details(sky);

@@ -117,6 +117,8 @@ Without a Pi, using QEMU:
 | `/data` growing to fill the boot drive | Untested |
 | Booting from a USB drive | Untested |
 | Touch displays (HDMI and DSI) | Untested |
+| HDMI monitors, including one plugged in after starting | Untested |
+| USB keyboards and mice | Untested |
 | Real mounts, cameras and RC servos | Untested |
 
 ### In Development — Astronomy System
@@ -130,7 +132,8 @@ Without a Pi, using QEMU:
 - Eyepiece rings: enter your telescope and eyepieces to see how much sky each one takes in. The size is the usual estimate, apparent field divided by magnification
 - Mount: choice of 10 mount types through INDI, GoTo, Sync, tracking, parking and manual moves
 - Tools: field of view, image scale, exposure limits and a polar alignment dial
-- Red night mode, and a STOP button on every screen
+- Keyboard and mouse as well as touch: every control works with Tab and Enter, the wheel zooms towards the pointer, Space is STOP, and F1 lists the keys
+- Red night mode, including the mouse pointer, and a STOP button on every screen
 - GoTo refuses to point near the Sun or below the horizon, or at all while the clock isn't set
 - Finds the location and time zone from the internet address, using ipapi.co, unless you enter your own. The clock sets itself over the internet, or by hand when offline
 

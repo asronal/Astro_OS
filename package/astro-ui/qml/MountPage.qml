@@ -93,9 +93,10 @@ Item {
                             height: 36
                             radius: 8
                             color: theme.background
-                            border.color: theme.line
+                            border.color: portBox.activeFocus ? theme.accent : theme.line
                             TextInput {
                                 id: portBox
+                                activeFocusOnTab: true
                                 anchors.fill: parent
                                 anchors.margins: 8
                                 verticalAlignment: TextInput.AlignVCenter
@@ -228,13 +229,13 @@ Item {
                     rowSpacing: 5
                     columnSpacing: 5
                     Item { width: 56; height: 1 }
-                    AstroButton { implicitWidth: 56; implicitHeight: 52; glyph: "up"; onPressed: mount.moveStart("N"); onReleased: mount.moveStop() }
+                    AstroButton { objectName: "moveNorth"; implicitWidth: 56; implicitHeight: 52; glyph: "up"; onPressed: mount.moveStart("N"); onReleased: mount.moveStop() }
                     Item { width: 56; height: 1 }
-                    AstroButton { implicitWidth: 56; implicitHeight: 52; glyph: "left"; onPressed: mount.moveStart("E"); onReleased: mount.moveStop() }
+                    AstroButton { objectName: "moveEast"; implicitWidth: 56; implicitHeight: 52; glyph: "left"; onPressed: mount.moveStart("E"); onReleased: mount.moveStop() }
                     AstroButton { implicitWidth: 56; implicitHeight: 52; glyph: "stop"; style: "danger"; onClicked: mount.abort() }
-                    AstroButton { implicitWidth: 56; implicitHeight: 52; glyph: "right"; onPressed: mount.moveStart("W"); onReleased: mount.moveStop() }
+                    AstroButton { objectName: "moveWest"; implicitWidth: 56; implicitHeight: 52; glyph: "right"; onPressed: mount.moveStart("W"); onReleased: mount.moveStop() }
                     Item { width: 56; height: 1 }
-                    AstroButton { implicitWidth: 56; implicitHeight: 52; glyph: "down"; onPressed: mount.moveStart("S"); onReleased: mount.moveStop() }
+                    AstroButton { objectName: "moveSouth"; implicitWidth: 56; implicitHeight: 52; glyph: "down"; onPressed: mount.moveStart("S"); onReleased: mount.moveStop() }
                     Item { width: 56; height: 1 }
                 }
 

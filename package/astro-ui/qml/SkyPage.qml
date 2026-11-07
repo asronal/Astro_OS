@@ -8,6 +8,7 @@ Item {
 
     property string result: ""
     property var searchResults: []
+    property int searchIndex: 0
     property bool searchOpen: false
     property bool layersOpen: false
     property bool ringsOpen: false
@@ -28,6 +29,52 @@ Item {
         ringsOpen = false
         searchBox.text = ""
         searchBox.focus = false
+    }
+
+    function toggleSearch() {
+        layersOpen = false
+        ringsOpen = false
+        searchOpen = !searchOpen
+        if (searchOpen)
+            searchBox.forceActiveFocus()
+        else {
+            searchBox.text = ""
+            searchBox.focus = false
+        }
+    }
+
+    function chooseResult(index) {
+        var chosen = searchResults[index]
+        if (chosen === undefined)
+            return
+        root.selectTarget(chosen)
+        chart.centerOnTarget()
+        closePanels()
+        result = ""
+    }
+
+    function togglePanel(name) {
+        var opening = !page[name]
+        closePanels()
+        page[name] = opening
+    }
+
+    function selectAtCenter() {
+        var object = chart.nextObjectAt(chart.width / 2, chart.height / 2)
+        if (object.name !== undefined) {
+            root.selectTarget(object)
+            result = ""
+        }
+    }
+
+    // Keeps what's in the middle of the view in the middle, and moves about a tenth of it
+    readonly property real panStep: chart.width / 10
+
+    function stepPreview(hours) {
+        timeOpen = true
+        var total = chart.timeOffsetHours + hours
+        var days = Math.round(total / 24)
+        setPreview(days, total - days * 24)
     }
 
     function backToNow() {
@@ -79,7 +126,45 @@ Item {
         function onTargetChanged() { page.refreshDetails() }
         function onSolarFilterFittedChanged() { page.refreshDetails() }
         function onTimeControlsRequested() { page.timeOpen = true }
+        function onEscapePressed() {
+            if (!page.visible)
+                return
+            if (page.searchOpen || page.layersOpen || page.ringsOpen) {
+                page.closePanels()
+            } else if (page.detailsOpen) {
+                page.detailsOpen = false
+            } else if (page.timeOpen) {
+                page.timeOpen = false
+            } else if (page.hasTarget) {
+                root.selectTarget({})
+                page.result = ""
+            } else {
+                root.skyFullView = false
+            }
+        }
     }
+
+    // Keys for this page. Those that a search box needs for itself step aside for it.
+    // Some input paths, such as VNC, report a shifted key as Shift plus that key, rather
+    // than working out what it means, so those are listed both ways.
+    readonly property bool keysActive: visible && !searchBox.activeFocus && !root.helpOpen
+    Shortcut { sequence: "Left"; enabled: page.keysActive; onActivated: chart.panBy(page.panStep, 0) }
+    Shortcut { sequence: "Right"; enabled: page.keysActive; onActivated: chart.panBy(-page.panStep, 0) }
+    Shortcut { sequence: "Up"; enabled: page.keysActive; onActivated: chart.panBy(0, page.panStep) }
+    Shortcut { sequence: "Down"; enabled: page.keysActive; onActivated: chart.panBy(0, -page.panStep) }
+    Shortcut { sequences: ["+", "=", "Shift++"]; enabled: page.keysActive; onActivated: chart.fieldOfView = chart.fieldOfView / 1.25 }
+    Shortcut { sequences: ["-", "_", "Shift+_"]; enabled: page.keysActive; onActivated: chart.fieldOfView = chart.fieldOfView * 1.25 }
+    Shortcut { sequences: ["Return", "Enter"]; enabled: page.keysActive; onActivated: page.selectAtCenter() }
+    Shortcut { sequences: ["F", "/"]; enabled: page.keysActive; onActivated: page.toggleSearch() }
+    Shortcut { sequence: "L"; enabled: page.keysActive; onActivated: page.togglePanel("layersOpen") }
+    Shortcut { sequence: "R"; enabled: page.keysActive; onActivated: page.togglePanel("ringsOpen") }
+    Shortcut { sequence: "T"; enabled: page.keysActive; onActivated: page.timeOpen = !page.timeOpen }
+    Shortcut { sequence: "I"; enabled: page.keysActive && page.hasTarget; onActivated: page.detailsOpen = !page.detailsOpen }
+    Shortcut { sequence: "["; enabled: page.keysActive; onActivated: page.stepPreview(-1) }
+    Shortcut { sequence: "]"; enabled: page.keysActive; onActivated: page.stepPreview(1) }
+    Shortcut { sequences: ["{", "Shift+{"]; enabled: page.keysActive; onActivated: page.stepPreview(-24) }
+    Shortcut { sequences: ["}", "Shift+}"]; enabled: page.keysActive; onActivated: page.stepPreview(24) }
+    Shortcut { sequence: "Home"; enabled: page.keysActive; onActivated: page.backToNow() }
 
     Binding {
         target: root
@@ -111,6 +196,7 @@ Item {
         safeTop: root.headerHeight
         safeBottom: root.navigationHeight + page.bottomCardSpace + page.timeStripSpace
         rings: sky.eyepieces
+        showCenterMark: inputMode.keyboardInUse
     }
 
     PinchArea {
@@ -124,6 +210,8 @@ Item {
             property double lastX: 0
             property double lastY: 0
             property bool dragged: false
+            // One notch of a mouse wheel is 120. Towards the pointer, as maps do it.
+            onWheel: (wheel) => chart.zoomAt(wheel.x, wheel.y, Math.pow(0.998, wheel.angleDelta.y))
             onPressed: (mouse) => { lastX = mouse.x; lastY = mouse.y; dragged = false }
             onPositionChanged: (mouse) => {
                 if (Math.abs(mouse.x - lastX) + Math.abs(mouse.y - lastY) > 2)
@@ -192,7 +280,12 @@ Item {
         }
         MouseArea {
             anchors.fill: parent
+            activeFocusOnTab: true
+            Keys.onShortcutOverride: (event) => event.accepted = event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+            Keys.onReturnPressed: switchRow.toggled()
+            Keys.onEnterPressed: switchRow.toggled()
             onClicked: switchRow.toggled()
+            FocusRing { }
         }
     }
 
@@ -212,17 +305,7 @@ Item {
                 AstroButton {
                     width: 50; height: 50; style: "quiet"; glyph: "search"
                     active: page.searchOpen
-                    onClicked: {
-                        page.layersOpen = false
-                        page.ringsOpen = false
-                        page.searchOpen = !page.searchOpen
-                        if (page.searchOpen)
-                            searchBox.forceActiveFocus()
-                        else {
-                            searchBox.text = ""
-                            searchBox.focus = false
-                        }
-                    }
+                    onClicked: page.toggleSearch()
                 }
                 AstroButton {
                     objectName: "layersButton"
@@ -331,7 +414,15 @@ Item {
                     font.family: theme.sansFamily
                     font.pixelSize: 14
                     inputMethodHints: Qt.ImhNoPredictiveText
-                    onTextChanged: page.searchResults = sky.search(text).slice(0, 5)
+                    activeFocusOnTab: true
+                    onTextChanged: {
+                        page.searchResults = sky.search(text).slice(0, 5)
+                        page.searchIndex = 0
+                    }
+                    Keys.onDownPressed: page.searchIndex = Math.min(page.searchIndex + 1, page.searchResults.length - 1)
+                    Keys.onUpPressed: page.searchIndex = Math.max(page.searchIndex - 1, 0)
+                    Keys.onReturnPressed: page.chooseResult(page.searchIndex)
+                    Keys.onEnterPressed: page.chooseResult(page.searchIndex)
 
                     AText {
                         anchors.fill: parent
@@ -348,8 +439,14 @@ Item {
                 model: page.searchResults
                 delegate: Item {
                     required property var modelData
+                    required property int index
                     width: searchColumn.width
                     height: 38
+                    Rectangle {
+                        anchors.fill: parent
+                        visible: parent.index === page.searchIndex && inputMode.keyboardInUse
+                        color: theme.surfaceHigh
+                    }
                     Rectangle { width: parent.width; height: 1; color: theme.line }
                     AText {
                         anchors.fill: parent
@@ -362,12 +459,7 @@ Item {
                     }
                     MouseArea {
                         anchors.fill: parent
-                        onClicked: {
-                            root.selectTarget(modelData)
-                            chart.centerOnTarget()
-                            page.closePanels()
-                            page.result = ""
-                        }
+                        onClicked: page.chooseResult(parent.index)
                     }
                 }
             }
@@ -530,6 +622,11 @@ Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     readonly property real hours: Math.max(-12, Math.min(12, chart.timeOffsetHours - page.previewDays * 24))
+                    activeFocusOnTab: true
+                    Keys.onShortcutOverride: (event) => event.accepted = event.key === Qt.Key_Left || event.key === Qt.Key_Right
+                    Keys.onLeftPressed: page.setPreview(page.previewDays, Math.max(-12, hours - 1 / 12))
+                    Keys.onRightPressed: page.setPreview(page.previewDays, Math.min(12, hours + 1 / 12))
+                    FocusRing { }
 
                     Rectangle {
                         anchors.left: parent.left
@@ -567,6 +664,8 @@ Item {
                         anchors.topMargin: -8
                         anchors.bottomMargin: -4
                         preventStealing: true
+                        // A notch of the wheel is a quarter of an hour
+                        onWheel: (wheel) => page.setPreview(page.previewDays, Math.max(-12, Math.min(12, slider.hours + wheel.angleDelta.y / 480)))
                         function moveTo(x) {
                             var hours = Math.max(0, Math.min(1, x / width)) * 24 - 12
                             page.setPreview(page.previewDays, Math.round(hours * 12) / 12)

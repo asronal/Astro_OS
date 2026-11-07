@@ -12,19 +12,61 @@ Rectangle {
     signal pressed()
     signal released()
 
-    readonly property bool lit: style === "primary" || style === "danger" || active || touch.pressed
+    // Held down from the keyboard, the same as a finger on it
+    property bool keyHeld: false
+    readonly property bool down: touch.pressed || keyHeld
+    readonly property bool lit: style === "primary" || style === "danger" || active || down
     readonly property color contentColor: style === "danger" ? theme.dangerInk : (lit ? theme.accentInk : theme.text)
 
     implicitWidth: Math.max(row.implicitWidth + 28, 48)
     implicitHeight: 44
     radius: 10
     opacity: enabled ? 1.0 : 0.38
-    color: style === "danger" ? (touch.pressed ? theme.dangerFillHigh : theme.dangerFill)
-         : lit ? (touch.pressed && !active ? theme.accentHigh : theme.accent)
-         : style === "quiet" ? "transparent" : theme.surfaceHigh
+    color: style === "danger" ? (down || touch.containsMouse ? theme.dangerFillHigh : theme.dangerFill)
+         : lit ? (down && !active || touch.containsMouse ? theme.accentHigh : theme.accent)
+         : style === "quiet" ? (touch.containsMouse ? theme.surfaceHigh : "transparent")
+         : (touch.containsMouse ? theme.line : theme.surfaceHigh)
     border.color: style === "quiet" || lit ? "transparent" : theme.line
     border.width: 1
-    scale: touch.pressed ? 0.97 : 1.0
+    scale: down ? 0.97 : 1.0
+    activeFocusOnTab: true
+
+    function isActivateKey(key) {
+        return key === Qt.Key_Return || key === Qt.Key_Enter
+    }
+
+    // Letting go must never be missed. A manual move runs until released, so it has to
+    // stop if the focus goes elsewhere while the key is held down.
+    function letGo() {
+        if (keyHeld) {
+            keyHeld = false
+            released()
+        }
+    }
+
+    onActiveFocusChanged: if (!activeFocus) letGo()
+    onEnabledChanged: if (!enabled) letGo()
+    onVisibleChanged: if (!visible) letGo()
+
+    Keys.onShortcutOverride: (event) => event.accepted = isActivateKey(event.key)
+    Keys.onPressed: (event) => {
+        if (!isActivateKey(event.key))
+            return
+        event.accepted = true
+        if (!event.isAutoRepeat) {
+            keyHeld = true
+            pressed()
+        }
+    }
+    Keys.onReleased: (event) => {
+        if (!isActivateKey(event.key) || event.isAutoRepeat || !keyHeld)
+            return
+        event.accepted = true
+        letGo()
+        clicked()
+    }
+
+    FocusRing { }
 
     Behavior on scale { NumberAnimation { duration: 80 } }
     Behavior on color { ColorAnimation { duration: 120 } }
@@ -53,6 +95,7 @@ Rectangle {
     MouseArea {
         id: touch
         anchors.fill: parent
+        hoverEnabled: true
         onClicked: button.clicked()
         onPressed: button.pressed()
         onReleased: button.released()

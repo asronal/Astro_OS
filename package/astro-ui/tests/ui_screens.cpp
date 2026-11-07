@@ -16,6 +16,7 @@
 #include <cstdio>
 
 #include "astro/sky.h"
+#include "input_mode.h"
 #include "mount_client.h"
 #include "sky_backend.h"
 #include "sky_chart.h"
@@ -46,6 +47,7 @@ int main(int argc, char *argv[])
         sky.setLocation(51.4769, -0.0005, 46.0);
     sky.setNightMode(night);
     MountClient mount(&sky, config.path() + QStringLiteral("/astro-hub.conf"));
+    InputMode input_mode;
 
     qmlRegisterType<SkyChart>("Astro", 1, 0, "SkyChart");
     qmlRegisterUncreatableType<SkyBackend>("Astro", 1, 0, "SkyBackend", QStringLiteral("Use the sky object"));
@@ -53,6 +55,7 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("sky"), &sky);
     engine.rootContext()->setContextProperty(QStringLiteral("mount"), &mount);
+    engine.rootContext()->setContextProperty(QStringLiteral("inputMode"), &input_mode);
     engine.rootContext()->setContextProperty(QStringLiteral("runWindowed"), true);
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
     if (engine.rootObjects().isEmpty()) {
@@ -65,7 +68,9 @@ int main(int argc, char *argv[])
     // place, so that any later settings update would send the app back to the first page.
     auto go_to_page = [&](int number) { QQmlProperty::write(window, QStringLiteral("page"), number); };
     window->setVisibility(QWindow::Windowed);
-    window->resize(800, 480);
+    // ASTRO_TEST_SIZE=1920x1080 tries the layout at the size of a monitor
+    const QStringList size = qEnvironmentVariable("ASTRO_TEST_SIZE", QStringLiteral("800x480")).split(QLatin1Char('x'));
+    window->resize(size.at(0).toInt(), size.at(1).toInt());
     wait_ms(4000);
 
     const char *names[] = {"tonight", "sky", "mount", "tools", "settings"};
@@ -283,6 +288,11 @@ int main(int argc, char *argv[])
                         tapped.value(QStringLiteral("cycleIndex")).toInt(), tapped.value(QStringLiteral("cycleCount")).toInt());
         }
         save_view(QStringLiteral("sky-cycle"));
+
+        // The list of keys
+        window->setProperty("helpOpen", true);
+        save_view(QStringLiteral("keys"));
+        window->setProperty("helpOpen", false);
 
         // Equipment in Settings
         go_to_page(4);

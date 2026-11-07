@@ -157,10 +157,16 @@ Item {
                     }
                     MouseArea {
                         anchors.fill: parent
-                        onClicked: {
+                        activeFocusOnTab: true
+                        function choose() {
                             root.selectTarget(modelData)
                             root.page = 1
                         }
+                        Keys.onShortcutOverride: (event) => event.accepted = event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                        Keys.onReturnPressed: choose()
+                        Keys.onEnterPressed: choose()
+                        onClicked: choose()
+                        FocusRing { }
                     }
                 }
             }
@@ -246,10 +252,16 @@ Item {
                             }
                             MouseArea {
                                 anchors.fill: parent
-                                onClicked: {
+                                activeFocusOnTab: true
+                                function choose() {
                                     root.selectTarget(row.modelData)
                                     root.page = 1
                                 }
+                                Keys.onShortcutOverride: (event) => event.accepted = event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                                Keys.onReturnPressed: choose()
+                                Keys.onEnterPressed: choose()
+                                onClicked: choose()
+                                FocusRing { }
                             }
                         }
                     }

@@ -12,12 +12,14 @@ Window {
     readonly property bool skyPage: page === 1
     // Tapping empty sky hides the navigation, for an uninterrupted view
     property bool skyFullView: false
-    readonly property bool navigationShown: !keyboard.active && !(skyPage && skyFullView)
+    readonly property bool navigationShown: !keyboard.visible && !(skyPage && skyFullView)
     readonly property int headerHeight: 52
     readonly property int navigationHeight: navigationShown ? 58 : 0
     // Set while the Sky page shows a time other than now
     property string skyPreviewText: ""
     signal timeControlsRequested()
+    signal escapePressed()
+    property bool helpOpen: false
 
     // A target always holds its real position for now, wherever it came from, so that
     // a time preview on the chart can never be what gets sent to the mount
@@ -31,6 +33,31 @@ Window {
     height: 480
     title: "Astro OS"
     color: theme.background
+
+    Binding { target: inputMode; property: "nightPointer"; value: sky.nightMode }
+
+    // These work from anywhere. A text field takes printable keys for itself first, so
+    // none of them get in the way of typing.
+    Shortcut { sequence: "Space"; context: Qt.ApplicationShortcut; onActivated: mount.abort() }
+    Shortcut { sequence: "1"; context: Qt.ApplicationShortcut; onActivated: root.page = 0 }
+    Shortcut { sequence: "2"; context: Qt.ApplicationShortcut; onActivated: root.page = 1 }
+    Shortcut { sequence: "3"; context: Qt.ApplicationShortcut; onActivated: root.page = 2 }
+    Shortcut { sequence: "4"; context: Qt.ApplicationShortcut; onActivated: root.page = 3 }
+    Shortcut { sequence: "5"; context: Qt.ApplicationShortcut; onActivated: root.page = 4 }
+    Shortcut { sequence: "N"; context: Qt.ApplicationShortcut; onActivated: sky.nightMode = !sky.nightMode }
+    Shortcut { sequences: ["F1", "?", "Shift+?"]; context: Qt.ApplicationShortcut; onActivated: root.helpOpen = !root.helpOpen }
+    Shortcut {
+        sequence: "Esc"
+        context: Qt.ApplicationShortcut
+        onActivated: {
+            if (root.helpOpen) {
+                root.helpOpen = false
+                return
+            }
+            root.escapePressed()
+            root.contentItem.forceActiveFocus()
+        }
+    }
 
     FontLoader { id: sansFont; source: "qrc:/data/fonts/IBMPlexSans.ttf" }
     FontLoader { id: monoFont; source: "qrc:/data/fonts/IBMPlexMono-Regular.ttf" }
@@ -76,7 +103,7 @@ Window {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.bottomMargin: keyboard.active ? keyboard.height : 0
+        anchors.bottomMargin: keyboard.visible ? keyboard.height : 0
         spacing: 0
 
         // Header. On the Sky page the chart continues underneath it.
@@ -265,8 +292,78 @@ Window {
                     }
                     MouseArea {
                         anchors.fill: parent
+                        activeFocusOnTab: true
+                        Keys.onShortcutOverride: (event) => event.accepted = event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                        Keys.onReturnPressed: root.page = tab.index
+                        Keys.onEnterPressed: root.page = tab.index
                         onClicked: root.page = tab.index
+                        FocusRing { }
                     }
+                }
+            }
+        }
+    }
+
+    // The keyboard and mouse controls
+    Rectangle {
+        anchors.fill: parent
+        z: 5
+        visible: root.helpOpen
+        color: Qt.rgba(theme.background.r, theme.background.g, theme.background.b, 0.8)
+        MouseArea {
+            anchors.fill: parent
+            onClicked: root.helpOpen = false
+        }
+        Card {
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 40, 680)
+            height: Math.min(parent.height - 30, helpColumn.implicitHeight + 28)
+            clip: true
+            MouseArea { anchors.fill: parent }
+            Column {
+                id: helpColumn
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 14
+                spacing: 8
+                AText { text: "Keyboard and mouse"; style: "display"; weight: 600; font.pixelSize: 17 }
+                Grid {
+                    columns: 2
+                    columnSpacing: 22
+                    rowSpacing: 3
+                    width: parent.width
+                    Repeater {
+                        model: [
+                            { keys: "Space", does: "STOP the mount" },
+                            { keys: "Arrows", does: "Look around the sky" },
+                            { keys: "1 to 5", does: "Change page" },
+                            { keys: "+  −  or wheel", does: "Zoom" },
+                            { keys: "N", does: "Night mode" },
+                            { keys: "Enter", does: "Select what's at the centre" },
+                            { keys: "Tab  Enter", does: "Move between and press buttons" },
+                            { keys: "F  or  /", does: "Search" },
+                            { keys: "Esc", does: "Close or go back" },
+                            { keys: "L  T  R  I", does: "Layers, time, rings, details" },
+                            { keys: "F1  or  ?", does: "This list" },
+                            { keys: "[  ]    {  }", does: "Hour or day, back or ahead" },
+                            { keys: "Ctrl+Alt+F2", does: "Terminal. Ctrl+Alt+F1 returns" },
+                            { keys: "Home", does: "Back to the present" }
+                        ]
+                        delegate: Row {
+                            required property var modelData
+                            width: (helpColumn.width - 22) / 2
+                            AText { width: 112; text: modelData.keys; style: "data"; color: theme.accent; font.pixelSize: 12 }
+                            AText { width: parent.width - 112; text: modelData.does; color: theme.text; font.pixelSize: 13; wrapMode: Text.WordWrap }
+                        }
+                    }
+                }
+                AText {
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    color: theme.dim
+                    font.pixelSize: 12
+                    text: "GoTo has no key of its own, so a stray press can't move the telescope. Use Tab to reach it, then Enter."
                 }
             }
         }
@@ -304,9 +401,10 @@ Window {
 
     InputPanel {
         id: keyboard
+        objectName: "onScreenKeyboard"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        visible: active
+        visible: active && inputMode.onScreenKeyboardWanted
     }
 }

@@ -227,6 +227,7 @@ SkyChart::SkyChart(QQuickItem* parent)
       m_safe_top(0.0),
       m_safe_bottom(0.0),
       m_time_offset_hours(0.0),
+      m_show_center_mark(false),
       m_last_tap_x(-1e9),
       m_last_tap_y(-1e9),
       m_frame_star_limit(6.5),
@@ -370,6 +371,32 @@ void SkyChart::setTimeOffsetHours(double hours)
     m_bodies.clear();
     emit viewChanged();
     update();
+}
+
+void SkyChart::setShowCenterMark(bool show)
+{
+    if (show == m_show_center_mark)
+        return;
+    m_show_center_mark = show;
+    emit viewChanged();
+    update();
+}
+
+void SkyChart::zoomAt(double x, double y, double factor)
+{
+    double az;
+    double alt;
+    chart::unproject(view(), x, y, &az, &alt);
+    setFieldOfView(m_fov * factor);
+
+    // panBy is only exact in the middle of the view, so close in on it in a few steps
+    for (int i = 0; i < 4; i++) {
+        double now_x;
+        double now_y;
+        if (!chart::project(view(), az, alt, &now_x, &now_y))
+            return;
+        panBy(x - now_x, y - now_y);
+    }
 }
 
 void SkyChart::setRings(const QVariantList& rings)
@@ -1135,7 +1162,7 @@ void SkyChart::draw_labels(QPainter* painter, const chart::View& view, const cha
     double az, alt, x, y;
 
     // The buttons down each side of the Sky page
-    labels.block(QRectF(0.0, m_safe_top, 70.0, 120.0));
+    labels.block(QRectF(0.0, m_safe_top, 70.0, 220.0));
     labels.block(QRectF(width() - 70.0, m_safe_top, 70.0, 120.0));
 
     QFont font(QStringLiteral("IBM Plex Sans"));
@@ -1253,6 +1280,15 @@ void SkyChart::draw_markers(QPainter* painter, const chart::View& view, const ch
                 }
             }
         }
+    }
+
+    if (m_show_center_mark) {
+        QPointF middle(width() / 2.0, height() / 2.0);
+        painter->setPen(QPen(brass, 1.2));
+        painter->drawLine(middle + QPointF(-9, 0), middle + QPointF(-3, 0));
+        painter->drawLine(middle + QPointF(3, 0), middle + QPointF(9, 0));
+        painter->drawLine(middle + QPointF(0, -9), middle + QPointF(0, -3));
+        painter->drawLine(middle + QPointF(0, 3), middle + QPointF(0, 9));
     }
 
     // Where the telescope is pointing

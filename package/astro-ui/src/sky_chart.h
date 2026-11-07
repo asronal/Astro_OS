@@ -40,6 +40,8 @@ class SkyChart : public QQuickPaintedItem {
     Q_PROPERTY(double timeOffsetHours READ timeOffsetHours WRITE setTimeOffsetHours NOTIFY viewChanged)
     // From SkyBackend::eyepieces. Those switched on are drawn as rings of true size.
     Q_PROPERTY(QVariantList rings READ rings WRITE setRings NOTIFY viewChanged)
+    // Marks the middle of the view, which is what the keyboard selects
+    Q_PROPERTY(bool showCenterMark READ showCenterMark WRITE setShowCenterMark NOTIFY viewChanged)
 
 public:
     explicit SkyChart(QQuickItem* parent = nullptr);
@@ -79,6 +81,8 @@ public:
     void setTimeOffsetHours(double hours);
     QVariantList rings() const { return m_rings; }
     void setRings(const QVariantList& rings);
+    bool showCenterMark() const { return m_show_center_mark; }
+    void setShowCenterMark(bool show);
 
     void paint(QPainter* painter) override;
 
@@ -86,6 +90,8 @@ public:
     Q_INVOKABLE void centerOn(double ra_deg, double dec_deg);
     // Turns to the target, wherever it is at the time being shown
     Q_INVOKABLE void centerOnTarget();
+    // Zooms while keeping the same part of the sky under this point, such as the pointer
+    Q_INVOKABLE void zoomAt(double x, double y, double factor);
     // The object a tap chooses. Tapping the same place again moves on to the next one
     // there, and cycleIndex and cycleCount say how far along that is. The position it
     // returns is always the real one for now, whatever time the chart is showing.
@@ -146,6 +152,7 @@ private:
     double m_safe_bottom;
     double m_time_offset_hours;
     QVariantList m_rings;
+    bool m_show_center_mark;
 
     // Where the last tap was, to tell tapping again from tapping somewhere new
     double m_last_tap_x;

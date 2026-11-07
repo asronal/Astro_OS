@@ -37,6 +37,12 @@ else
 	echo 'ALLOW_VNC="yes"' > "${TARGET_DIR}/etc/astro-ui.conf"
 fi
 
+# A terminal for someone at a keyboard, as the app covers the first one. Ctrl+Alt+F2
+# reaches it, and Ctrl+Alt+F1 goes back.
+if ! grep -q '^tty2::' "${TARGET_DIR}/etc/inittab"; then
+	echo 'tty2::respawn:/sbin/getty -L  tty2 0 vt100 # Terminal beside the app' >> "${TARGET_DIR}/etc/inittab"
+fi
+
 # Allow console logins on the USB-C serial port
 if [ -f "${TARGET_DIR}/etc/securetty" ] && ! grep -qx ttyGS0 "${TARGET_DIR}/etc/securetty"; then
 	echo ttyGS0 >> "${TARGET_DIR}/etc/securetty"

@@ -57,6 +57,9 @@ fi
 	> "${STATE_DIR}/indiserver.log" 2>&1 &
 INDI_PID=$!
 trap 'kill "${INDI_PID}" 2> /dev/null || true; pkill -f "${TARGET}/usr/bin/indi_simulator_telescope" || true' EXIT
+# sh skips the EXIT trap when a signal ends it, and a background job ignores Ctrl+C, so
+# without this the server keeps running and holds its port after the app has gone
+trap 'exit 130' INT TERM HUP
 
 echo "Starting the app. It is slower than on a Pi because every instruction is emulated."
 echo "Press Ctrl+C here to quit."

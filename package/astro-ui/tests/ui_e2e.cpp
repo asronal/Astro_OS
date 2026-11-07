@@ -12,6 +12,7 @@
 #include <QQuickWindow>
 #include <QTemporaryDir>
 #include <QtQml>
+#include <qpa/qwindowsysteminterface.h>
 
 #include <cmath>
 #include <cstdio>
@@ -19,6 +20,7 @@
 
 #include "astro/sky.h"
 #include "chart_math.h"
+#include "input_mode.h"
 #include "mount_client.h"
 #include "sky_backend.h"
 #include "sky_chart.h"
@@ -112,6 +114,7 @@ int main(int argc, char* argv[])
                    qEnvironmentVariable("ASTRO_CATALOG_DIR", QStringLiteral("/usr/share/astro")));
     sky.setLocation(51.4769, -0.0005, 46.0);
     MountClient mount(&sky, config.path() + QStringLiteral("/astro-hub.conf"));
+    InputMode input_mode;
 
     qmlRegisterType<SkyChart>("Astro", 1, 0, "SkyChart");
     qmlRegisterUncreatableType<SkyBackend>("Astro", 1, 0, "SkyBackend", QStringLiteral("Use the sky object"));
@@ -119,6 +122,7 @@ int main(int argc, char* argv[])
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("sky"), &sky);
     engine.rootContext()->setContextProperty(QStringLiteral("mount"), &mount);
+    engine.rootContext()->setContextProperty(QStringLiteral("inputMode"), &input_mode);
     engine.rootContext()->setContextProperty(QStringLiteral("runWindowed"), true);
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
     if (engine.rootObjects().isEmpty()) {
@@ -337,6 +341,229 @@ int main(int argc, char* argv[])
     settle(200);
     report("A switch turns the ring off", !sky.eyepieces().first().toMap().value(QStringLiteral("on")).toBool());
     finger.tap("ringsButton");
+
+    // Real keys and wheel turns, delivered the way the window system delivers them
+    auto key_down = [&](int key, const QString& text = QString(), Qt::KeyboardModifiers modifiers = Qt::NoModifier) {
+        QWindowSystemInterface::handleKeyEvent<QWindowSystemInterface::SynchronousDelivery>(window, QEvent::KeyPress, key, modifiers, text);
+    };
+    auto key_up = [&](int key, const QString& text = QString(), Qt::KeyboardModifiers modifiers = Qt::NoModifier) {
+        QWindowSystemInterface::handleKeyEvent<QWindowSystemInterface::SynchronousDelivery>(window, QEvent::KeyRelease, key, modifiers, text);
+    };
+    auto press_key = [&](int key, const QString& text = QString(), Qt::KeyboardModifiers modifiers = Qt::NoModifier) {
+        key_down(key, text, modifiers);
+        key_up(key, text, modifiers);
+        settle(80);
+    };
+    auto type_text = [&](const QString& text) {
+        for (QChar c : text)
+            press_key(c.toUpper().unicode(), QString(c));
+    };
+    auto wheel = [&](QPointF at, int notches) {
+        QWindowSystemInterface::handleWheelEvent(window, at, window->mapToGlobal(at), QPoint(), QPoint(0, notches * 120));
+        QWindowSystemInterface::flushWindowSystemEvents();
+        settle(80);
+    };
+    auto panel_open = [&](const char* name) { return page->property(name).toBool(); };
+    auto press_tab_until = [&](const char* name) {
+        for (int i = 0; i < 80; i++) {
+            press_key(Qt::Key_Tab);
+            QQuickItem* focused = window->activeFocusItem();
+            if (focused && focused->objectName() == QString::fromUtf8(name))
+                return true;
+        }
+        return false;
+    };
+
+    // An on-screen keyboard stays out of the way once a real one is in use
+    QMetaObject::invokeMethod(page, "backToNow");
+    QMetaObject::invokeMethod(window, "selectTarget", Q_ARG(QVariant, QVariant(QVariantMap())));
+    go_to_page(1);
+    settle(300);
+    report("The on-screen keyboard is offered before any key is pressed", input_mode.onScreenKeyboardWanted());
+
+    press_key(Qt::Key_Escape);
+    report("A real key shows that a keyboard is in use", input_mode.keyboardInUse() && !input_mode.onScreenKeyboardWanted());
+    // Straight to the app's filter, as a window needs a real touch device to accept one
+    QObject touched;
+    QTouchEvent touch(QEvent::TouchBegin);
+    QCoreApplication::sendEvent(&touched, &touch);
+    report("A touch brings the on-screen keyboard back", input_mode.onScreenKeyboardWanted() && !input_mode.keyboardInUse());
+    finger.tap(QPointF(5.0, 300.0));
+    report("A mouse alone doesn't take it away, as there may be no way to type", input_mode.onScreenKeyboardWanted());
+    press_key(Qt::Key_Escape);
+    finger.press(QPointF(5.0, 300.0));
+    finger.release(QPointF(5.0, 300.0));
+    settle(100);
+    report("Using the mouse hides the keyboard's focus marks", !input_mode.keyboardInUse());
+    report("But leaves the on-screen keyboard away", !input_mode.onScreenKeyboardWanted());
+
+    // Pages and night mode
+    press_key(Qt::Key_1, QStringLiteral("1"));
+    report("1 goes to the first page", window->property("page").toInt() == 0);
+    press_key(Qt::Key_5, QStringLiteral("5"));
+    report("5 goes to the last page", window->property("page").toInt() == 4);
+    press_key(Qt::Key_2, QStringLiteral("2"));
+    report("2 goes to the Sky page", window->property("page").toInt() == 1);
+    settle(300);
+
+    bool was_night = sky.nightMode();
+    press_key(Qt::Key_N, QStringLiteral("n"));
+    report("N changes night mode", sky.nightMode() != was_night);
+    report("The pointer turns red at night", QGuiApplication::overrideCursor() != nullptr);
+    {
+        QImage pointer = InputMode::nightPointerImage();
+        bool all_red = true;
+        int painted = 0;
+        for (int y = 0; y < pointer.height(); y++) {
+            for (int x = 0; x < pointer.width(); x++) {
+                QColor c = pointer.pixelColor(x, y);
+                if (c.alpha() == 0)
+                    continue;
+                painted++;
+                all_red = all_red && c.green() <= c.red() * 0.3 && c.blue() <= c.red() * 0.3;
+            }
+        }
+        report("Every pixel of it is red", all_red && painted > 50, QString::number(painted) + " pixels");
+    }
+    press_key(Qt::Key_N, QStringLiteral("n"));
+    report("And goes back to normal by day", QGuiApplication::overrideCursor() == nullptr);
+
+    // Looking around
+    chart->setCenterAz(180.0);
+    chart->setCenterAlt(40.0);
+    chart->setFieldOfView(60.0);
+    press_key(Qt::Key_Right);
+    report("Right looks further round the sky", chart->centerAz() > 180.0, QString::number(chart->centerAz()));
+    press_key(Qt::Key_Left);
+    press_key(Qt::Key_Left);
+    report("Left looks back the other way", chart->centerAz() < 180.0, QString::number(chart->centerAz()));
+    press_key(Qt::Key_Up);
+    report("Up looks higher", chart->centerAlt() > 40.0, QString::number(chart->centerAlt()));
+    press_key(Qt::Key_Down);
+    press_key(Qt::Key_Down);
+    report("Down looks lower", chart->centerAlt() < 40.0, QString::number(chart->centerAlt()));
+    double fov = chart->fieldOfView();
+    press_key(Qt::Key_Plus, QStringLiteral("+"), Qt::ShiftModifier);
+    report("+ zooms in", chart->fieldOfView() < fov, QString::number(chart->fieldOfView()));
+    fov = chart->fieldOfView();
+    press_key(Qt::Key_Minus, QStringLiteral("-"));
+    report("- zooms out", chart->fieldOfView() > fov, QString::number(chart->fieldOfView()));
+
+    // The wheel
+    fov = chart->fieldOfView();
+    double az_before = chart->centerAz();
+    wheel(QPointF(650.0, 150.0), 2);
+    report("The wheel zooms in", chart->fieldOfView() < fov, QString::number(chart->fieldOfView()));
+    report("Towards the pointer", chart->centerAz() != az_before, QString::number(chart->centerAz()));
+    fov = chart->fieldOfView();
+    wheel(QPointF(650.0, 150.0), -2);
+    report("And back out", chart->fieldOfView() > fov, QString::number(chart->fieldOfView()));
+
+    // Searching with only a keyboard. Typing an L mustn't open the layers panel.
+    press_key(Qt::Key_F, QStringLiteral("f"));
+    settle(200);
+    report("F opens search", panel_open("searchOpen"));
+    double az_typing = chart->centerAz();
+    type_text(QStringLiteral("vega"));
+    press_key(Qt::Key_Backspace);
+    type_text(QStringLiteral("a"));
+    report("Letters go into the box, not to shortcuts", !panel_open("layersOpen") && !panel_open("ringsOpen"));
+    QVariantList results = page->property("searchResults").toList();
+    report("Typing searches", !results.isEmpty(), QString::number(results.size()) + " found");
+    press_key(Qt::Key_Down);
+    press_key(Qt::Key_Up);
+    report("Arrows move through the list, not the sky", chart->centerAz() == az_typing && page->property("searchIndex").toInt() == 0);
+    press_key(Qt::Key_Return);
+    settle(200);
+    report("Enter chooses the result", target().value(QStringLiteral("name")).toString() == QStringLiteral("Vega"), target().value(QStringLiteral("name")).toString());
+    report("And closes the panel", !panel_open("searchOpen"));
+    press_key(Qt::Key_L, QStringLiteral("l"));
+    report("Shortcuts work again afterwards", panel_open("layersOpen"));
+    press_key(Qt::Key_Escape);
+    report("Esc closes a panel", !panel_open("layersOpen"));
+
+    // Details, then Esc backing out one step at a time
+    press_key(Qt::Key_I, QStringLiteral("i"));
+    settle(200);
+    report("I opens the details", panel_open("detailsOpen"));
+    press_key(Qt::Key_Escape);
+    report("Esc closes them, and keeps the target", !panel_open("detailsOpen") && target().contains(QStringLiteral("name")));
+    press_key(Qt::Key_Escape);
+    report("Esc again clears the target", !target().contains(QStringLiteral("name")));
+
+    // Time
+    press_key(Qt::Key_BracketRight, QStringLiteral("]"));
+    report("] moves an hour ahead", std::fabs(offset() - 1.0) < 1e-9 && panel_open("timeOpen"), QString::number(offset()));
+    press_key(Qt::Key_BraceRight, QStringLiteral("}"), Qt::ShiftModifier);
+    report("} moves a day ahead", std::fabs(offset() - 25.0) < 1e-9, QString::number(offset()));
+    press_key(Qt::Key_BracketLeft, QStringLiteral("["));
+    report("[ moves an hour back", std::fabs(offset() - 24.0) < 1e-9, QString::number(offset()));
+    press_key(Qt::Key_Home);
+    report("Home returns to the present", offset() == 0.0);
+    press_key(Qt::Key_T, QStringLiteral("t"));
+    report("T closes the time controls", !panel_open("timeOpen"));
+
+    // Selecting by keyboard: whatever is at the centre, and again for the next
+    set_preview(best);
+    chart->centerOn(pleiades.value(QStringLiteral("ra")).toDouble(), pleiades.value(QStringLiteral("dec")).toDouble());
+    chart->setFieldOfView(20.0);
+    settle(300);
+    forget_last_tap();
+    press_key(Qt::Key_Return);
+    report("Enter selects what's at the centre", target().value(QStringLiteral("cycleIndex")).toInt() == 1, target().value(QStringLiteral("name")).toString());
+    press_key(Qt::Key_Return);
+    report("Enter again moves to the next", target().value(QStringLiteral("cycleIndex")).toInt() == 2, target().value(QStringLiteral("name")).toString());
+    report("The centre is marked while using keys", chart->showCenterMark());
+    QMetaObject::invokeMethod(page, "backToNow");
+
+    // A stray letter can't start a slew: no key but Enter on the button itself does that
+    QMetaObject::invokeMethod(window, "selectTarget", Q_ARG(QVariant, QVariant(sky.bodyMap(chosen))));
+    settle(200);
+    window->contentItem()->forceActiveFocus();
+    for (int key : {Qt::Key_G, Qt::Key_S, Qt::Key_Y, Qt::Key_O}) {
+        press_key(key, QString(QChar(key).toLower()));
+    }
+    settle(1000);
+    report("No letter key starts a slew", !mount.slewing());
+
+    // GoTo by Tab and Enter, then STOP by Space
+    report("Tab reaches GoTo", press_tab_until("gotoButton"));
+    press_key(Qt::Key_Return);
+    report("Enter on it starts a slew", wait_for([&]() { return mount.slewing(); }, 20000));
+    press_key(Qt::Key_Space, QStringLiteral(" "));
+    report("Space stops it", wait_for([&]() { return !mount.slewing(); }, 10000));
+
+    // A held key moves the mount, and it stops if the focus goes elsewhere while held
+    mount.setTracking(false);
+    go_to_page(2);
+    settle(400);
+    report("Tab reaches a manual move button", press_tab_until("moveNorth"));
+    double dec_start = mount.dec();
+    key_down(Qt::Key_Return);
+    settle(3000);
+    double dec_moving = mount.dec();
+    report("Holding Enter moves the mount", std::fabs(dec_moving - dec_start) > 0.01, QStringLiteral("%1 degrees").arg(dec_moving - dec_start));
+    press_key(Qt::Key_Tab);
+    settle(1500);
+    double dec_after_tab = mount.dec();
+    settle(2000);
+    report("Moving the focus away while held stops it", std::fabs(mount.dec() - dec_after_tab) < 0.005, QStringLiteral("%1 degrees").arg(mount.dec() - dec_after_tab));
+    key_up(Qt::Key_Return);
+    settle(200);
+
+    // Text fields can be reached, and the page follows the focus off its bottom
+    go_to_page(4);
+    settle(400);
+    report("Tab reaches the last button in Settings", press_tab_until("showKeysButton"));
+    QPointF focused_at = finger.center_of("showKeysButton");
+    report("And Settings scrolls to keep it in view", focused_at.y() > 52.0 && focused_at.y() < window->height() - 58.0, QString::number(focused_at.y()));
+    press_key(Qt::Key_Return);
+    report("Enter presses it", window->property("helpOpen").toBool());
+    press_key(Qt::Key_Escape);
+    report("Esc closes the list of keys", !window->property("helpOpen").toBool());
+
+    go_to_page(1);
+    settle(300);
 
     // Leaving the page never leaves a preview running
     set_preview(5.0);
