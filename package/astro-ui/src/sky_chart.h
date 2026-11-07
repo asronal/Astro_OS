@@ -38,6 +38,8 @@ class SkyChart : public QQuickPaintedItem {
     Q_PROPERTY(double safeTop READ safeTop WRITE setSafeTop NOTIFY viewChanged)
     Q_PROPERTY(double safeBottom READ safeBottom WRITE setSafeBottom NOTIFY viewChanged)
     Q_PROPERTY(double timeOffsetHours READ timeOffsetHours WRITE setTimeOffsetHours NOTIFY viewChanged)
+    // From SkyBackend::eyepieces. Those switched on are drawn as rings of true size.
+    Q_PROPERTY(QVariantList rings READ rings WRITE setRings NOTIFY viewChanged)
 
 public:
     explicit SkyChart(QQuickItem* parent = nullptr);
@@ -75,12 +77,19 @@ public:
     // Only moves what the chart shows. GoTo and its safety checks use the real time.
     double timeOffsetHours() const { return m_time_offset_hours; }
     void setTimeOffsetHours(double hours);
+    QVariantList rings() const { return m_rings; }
+    void setRings(const QVariantList& rings);
 
     void paint(QPainter* painter) override;
 
     Q_INVOKABLE void panBy(double dx, double dy);
     Q_INVOKABLE void centerOn(double ra_deg, double dec_deg);
-    Q_INVOKABLE QVariantMap objectAt(double x, double y) const;
+    // Turns to the target, wherever it is at the time being shown
+    Q_INVOKABLE void centerOnTarget();
+    // The object a tap chooses. Tapping the same place again moves on to the next one
+    // there, and cycleIndex and cycleCount say how far along that is. The position it
+    // returns is always the real one for now, whatever time the chart is showing.
+    Q_INVOKABLE QVariantMap nextObjectAt(double x, double y);
 
 signals:
     void viewChanged();
@@ -117,6 +126,8 @@ private:
     void draw_landscape(QPainter* painter, const chart::View& view) const;
     void draw_labels(QPainter* painter, const chart::View& view, const chart::Site& site) const;
     void draw_markers(QPainter* painter, const chart::View& view, const chart::Site& site) const;
+    void draw_rings(QPainter* painter, const chart::View& view, const chart::Site& site) const;
+    bool target_shown_at(double* ra, double* dec) const;
 
     SkyBackend* m_sky;
     double m_center_az;
@@ -134,6 +145,11 @@ private:
     double m_safe_top;
     double m_safe_bottom;
     double m_time_offset_hours;
+    QVariantList m_rings;
+
+    // Where the last tap was, to tell tapping again from tapping somewhere new
+    double m_last_tap_x;
+    double m_last_tap_y;
 
     // Working out a planet's position is slow, so only one is updated per frame
     std::vector<astro::BodyReport> m_bodies;

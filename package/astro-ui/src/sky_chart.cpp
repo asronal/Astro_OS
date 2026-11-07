@@ -19,6 +19,12 @@ using chart::kRadToDeg;
 static const double kMinFov = 1.0;
 static const double kMaxFov = 180.0;
 static const double kTapRadiusPx = 30.0;
+// Tapping within this of the last tap counts as tapping the same place again
+static const double kSameTapPx = 20.0;
+static const std::size_t kMaxTapChoices = 8;
+// Rings smaller than this can't be told from a star
+static const double kMinRingPx = 5.0;
+static const int kRingPoints = 96;
 static const int kSkyGridWidth = 120;
 static const int kBodyUpdateMs = 4000;
 static const int kRidgeSamples = 1440;  // One every quarter of a degree of azimuth
@@ -221,6 +227,8 @@ SkyChart::SkyChart(QQuickItem* parent)
       m_safe_top(0.0),
       m_safe_bottom(0.0),
       m_time_offset_hours(0.0),
+      m_last_tap_x(-1e9),
+      m_last_tap_y(-1e9),
       m_frame_star_limit(6.5),
       m_frame_daylight(0.0),
       m_frame_moon_light(0.0),
@@ -356,8 +364,17 @@ void SkyChart::setSafeBottom(double pixels)
 
 void SkyChart::setTimeOffsetHours(double hours)
 {
+    if (hours == m_time_offset_hours)
+        return;
     m_time_offset_hours = hours;
     m_bodies.clear();
+    emit viewChanged();
+    update();
+}
+
+void SkyChart::setRings(const QVariantList& rings)
+{
+    m_rings = rings;
     emit viewChanged();
     update();
 }
@@ -381,6 +398,39 @@ void SkyChart::centerOn(double ra_deg, double dec_deg)
     astro::equatorial_to_horizontal(ra_deg, dec_deg, m_sky->observer(), julian_date(), &az, &alt);
     setCenterAz(az);
     setCenterAlt(alt);
+}
+
+bool SkyChart::target_shown_at(double* ra, double* dec) const
+{
+    if (!m_target.contains(QStringLiteral("ra")))
+        return false;
+    *ra = m_target.value(QStringLiteral("ra")).toDouble();
+    *dec = m_target.value(QStringLiteral("dec")).toDouble();
+
+    // A target holds its real position, but a planet is elsewhere at another time
+    if (m_target.value(QStringLiteral("type")).toString() == QLatin1String("Solar system")) {
+        QString name = m_target.value(QStringLiteral("name")).toString();
+        for (const astro::BodyReport& r : m_bodies) {
+            if (QString::fromStdString(r.name) == name) {
+                *ra = r.ra_deg;
+                *dec = r.dec_deg;
+                break;
+            }
+        }
+    }
+    return true;
+}
+
+void SkyChart::centerOnTarget()
+{
+    double ra;
+    double dec;
+
+    if (!m_sky)
+        return;
+    refresh_bodies();
+    if (target_shown_at(&ra, &dec))
+        centerOn(ra, dec);
 }
 
 chart::View SkyChart::view() const
@@ -451,7 +501,7 @@ void SkyChart::refresh_bodies()
     if (m_bodies.size() != bodies.size()) {
         m_bodies.clear();
         for (astro::Body body : bodies)
-            m_bodies.push_back(astro::body_report(body, m_sky->observer(), jd));
+            m_bodies.push_back(astro::body_position(body, m_sky->observer(), jd));
         m_next_body = 0;
         m_last_body_update_ms = QDateTime::currentMSecsSinceEpoch();
         return;
@@ -460,7 +510,7 @@ void SkyChart::refresh_bodies()
     qint64 now = QDateTime::currentMSecsSinceEpoch();
     if (now - m_last_body_update_ms < kBodyUpdateMs)
         return;
-    m_bodies[m_next_body] = astro::body_report(bodies[m_next_body], m_sky->observer(), jd);
+    m_bodies[m_next_body] = astro::body_position(bodies[m_next_body], m_sky->observer(), jd);
     m_next_body = (m_next_body + 1) % bodies.size();
     m_last_body_update_ms = now;
 }
@@ -1186,9 +1236,10 @@ void SkyChart::draw_markers(QPainter* painter, const chart::View& view, const ch
     painter->setBrush(Qt::NoBrush);
 
     // The selected target, in corner brackets like a viewfinder
-    if (m_target.contains(QStringLiteral("ra"))) {
-        chart::equatorial_to_horizontal(site, m_target.value(QStringLiteral("ra")).toDouble(),
-                                        m_target.value(QStringLiteral("dec")).toDouble(), &az, &alt);
+    double target_ra;
+    double target_dec;
+    if (target_shown_at(&target_ra, &target_dec)) {
+        chart::equatorial_to_horizontal(site, target_ra, target_dec, &az, &alt);
         if (chart::project(view, az, alt, &x, &y) && boundingRect().contains(QPointF(x, y))) {
             QPointF point(x, y);
             painter->setPen(QPen(brass, 1.6));
@@ -1219,6 +1270,63 @@ void SkyChart::draw_markers(QPainter* painter, const chart::View& view, const ch
     }
 }
 
+void SkyChart::draw_rings(QPainter* painter, const chart::View& view, const chart::Site& site) const
+{
+    // Around the selected target, or failing that, where the telescope points, or
+    // failing that, the middle of the view
+    double center_az = view.center_az;
+    double center_alt = std::atan2(view.sin_center, view.cos_center) * kRadToDeg;
+    double ra;
+    double dec;
+    if (target_shown_at(&ra, &dec))
+        chart::equatorial_to_horizontal(site, ra, dec, &center_az, &center_alt);
+    else if (m_mount_visible)
+        chart::equatorial_to_horizontal(site, m_mount_ra, m_mount_dec, &center_az, &center_alt);
+
+    QColor colour = m_night_mode ? QColor(255, 74, 54) : QColor(243, 203, 144);
+    QFont font(QStringLiteral("IBM Plex Sans"));
+    font.setPixelSize(12);
+    painter->setFont(font);
+    QFontMetricsF metrics(font);
+    QRectF bounds(0.0, m_safe_top, width(), std::max(height() - m_safe_top - m_safe_bottom, 1.0));
+    LabelPlacer labels(painter, bounds);
+    labels.block(QRectF(0.0, m_safe_top, 70.0, 220.0));
+    labels.block(QRectF(width() - 70.0, m_safe_top, 70.0, 120.0));
+
+    for (const QVariant& item : m_rings) {
+        QVariantMap ring = item.toMap();
+        if (!ring.value(QStringLiteral("on")).toBool() || !ring.contains(QStringLiteral("fieldDeg")))
+            continue;
+
+        double radius = ring.value(QStringLiteral("fieldDeg")).toDouble() / 2.0;
+        QPolygonF outline;
+        for (int i = 0; i < kRingPoints; i++) {
+            double az, alt, x, y;
+            chart::point_at_bearing(center_az, center_alt, radius, i * 360.0 / kRingPoints, &az, &alt);
+            if (chart::project(view, az, alt, &x, &y))
+                outline.append(QPointF(x, y));
+        }
+        // Stereographic drawing keeps circles round, so these are opposite sides
+        if (outline.size() != kRingPoints || QLineF(outline[0], outline[kRingPoints / 2]).length() < kMinRingPx * 2.0)
+            continue;
+
+        painter->setBrush(Qt::NoBrush);
+        painter->setPen(QPen(colour, 1.4));
+        painter->drawPolygon(outline);
+
+        // On the highest point of the ring on screen, or inside if that's off the top
+        QPointF top = outline[0];
+        for (const QPointF& point : outline) {
+            if (point.y() < top.y())
+                top = point;
+        }
+        painter->setPen(colour);
+        QPointF anchor(top.x(), std::max(top.y() - 5.0, m_safe_top + metrics.height()));
+        if (!labels.place(anchor, ring.value(QStringLiteral("label")).toString(), metrics, true))
+            labels.place(anchor + QPointF(0.0, metrics.height() + 4.0), ring.value(QStringLiteral("label")).toString(), metrics, true);
+    }
+}
+
 void SkyChart::paint(QPainter* painter)
 {
     if (!m_sky) {
@@ -1241,63 +1349,129 @@ void SkyChart::paint(QPainter* painter)
     draw_bodies(painter, current_view, current_site);
     draw_landscape(painter, current_view);
     draw_labels(painter, current_view, current_site);
+    draw_rings(painter, current_view, current_site);
     draw_markers(painter, current_view, current_site);
 }
 
-QVariantMap SkyChart::objectAt(double x, double y) const
+QVariantMap SkyChart::nextObjectAt(double x, double y)
 {
-    QVariantMap best;
     if (!m_sky)
-        return best;
+        return QVariantMap();
 
+    // The time may have just changed, with no frame drawn since
+    refresh_bodies();
     chart::View current_view = view();
     chart::Site current_site = site();
-    double best_distance = std::numeric_limits<double>::max();
+    prepare_frame(current_site);
 
-    auto consider = [&](double ra, double dec, double priority_px, const QVariantMap& details) {
+    enum class Kind { Star, Object, Body };
+    struct Choice {
+        Kind kind;
+        int index;
+        double score;  // Lower is nearer the finger
+        double ra;
+        double dec;
+    };
+    std::vector<Choice> choices;
+
+    // Only what the chart actually shows can be chosen. reach_px is how far from its
+    // centre something counts as being tapped directly, and big objects are tappable
+    // anywhere on them, but still rank behind anything right under the finger.
+    auto consider = [&](Kind kind, int index, double ra, double dec, double bonus_px, double reach_px) {
         double az, alt, px, py;
         chart::equatorial_to_horizontal(current_site, ra, dec, &az, &alt);
-        if (!chart::project(current_view, az, alt, &px, &py))
+        double land = m_show_landscape ? std::max(ridge_height(m_ridge_far, az), ridge_height(m_ridge_near, az)) : 0.0;
+        if (alt < land || !chart::project(current_view, az, alt, &px, &py))
             return;
-        double distance = std::hypot(px - x, py - y) - priority_px;
-        if (distance < best_distance && distance < kTapRadiusPx) {
-            best_distance = distance;
-            best = details;
-            best[QStringLiteral("ra")] = ra;
-            best[QStringLiteral("dec")] = dec;
-            best[QStringLiteral("az")] = std::fmod(az + 360.0, 360.0);
-            best[QStringLiteral("alt")] = alt;
-        }
+        double distance = std::hypot(px - x, py - y);
+        double score = distance - bonus_px;
+        if (distance <= reach_px)
+            score = std::min(score, kTapRadiusPx / 3.0);
+        if (score < kTapRadiusPx)
+            choices.push_back({kind, index, score, ra, dec});
     };
 
-    // Named objects win over a nearby faint star
-    // Faint stars are for looks, so a tap always finds something named
+    double pixels_per_degree = width() / m_fov;
+    const QVector<CatalogStar>& stars = m_sky->catalog().stars();
     double limit = std::min(star_limit(), 6.5);
-    for (const CatalogStar& s : m_sky->catalog().stars()) {
-        if (s.mag > limit)
+    // Faint stars are for looks, so a tap always finds something named
+    for (int i = 0; i < stars.size() && stars[i].mag <= limit; i++)
+        consider(Kind::Star, i, stars[i].ra_deg, stars[i].dec_deg, 0.0, 0.0);
+
+    const QVector<CatalogObject>& objects = m_sky->catalog().objects();
+    if (daylight() <= 0.6) {
+        for (int i = 0; i < objects.size(); i++) {
+            if (!objects[i].is_messier && m_fov > 30.0)
+                break;
+            consider(Kind::Object, i, objects[i].ra_deg, objects[i].dec_deg, 8.0,
+                     objects[i].major_arcmin / 120.0 * pixels_per_degree);
+        }
+    }
+
+    for (std::size_t i = 0; i < m_bodies.size(); i++) {
+        const astro::BodyReport& r = m_bodies[i];
+        bool big = r.body == astro::Body::Sun || r.body == astro::Body::Moon;
+        if (!big && r.magnitude > star_limit() + 2.0)
+            continue;
+        consider(Kind::Body, int(i), r.ra_deg, r.dec_deg, 16.0, big ? std::max(8.0, 0.26 * pixels_per_degree) : 0.0);
+    }
+
+    bool same_place = std::hypot(x - m_last_tap_x, y - m_last_tap_y) <= kSameTapPx;
+    m_last_tap_x = x;
+    m_last_tap_y = y;
+    if (choices.empty())
+        return QVariantMap();
+
+    std::stable_sort(choices.begin(), choices.end(), [](const Choice& a, const Choice& b) { return a.score < b.score; });
+    if (choices.size() > kMaxTapChoices)
+        choices.resize(kMaxTapChoices);
+
+    auto display_name = [&](const Choice& choice) {
+        switch (choice.kind) {
+        case Kind::Star:
+            return stars[choice.index].name.isEmpty() ? QStringLiteral("Star") : stars[choice.index].name;
+        case Kind::Object: {
+            const CatalogObject& o = objects[choice.index];
+            return o.common.isEmpty() ? o.name : o.name + QStringLiteral(" ") + o.common;
+        }
+        case Kind::Body:
             break;
-        QVariantMap details;
-        details[QStringLiteral("name")] = s.name.isEmpty() ? QStringLiteral("Star") : s.name;
-        details[QStringLiteral("type")] = QStringLiteral("Star");
-        details[QStringLiteral("mag")] = s.mag;
-        consider(s.ra_deg, s.dec_deg, 0.0, details);
+        }
+        return QString::fromStdString(m_bodies[choice.index].name);
+    };
+
+    // Which of these is selected now. Many stars are just called "Star", and two
+    // entries can share a name, so both the name and the position have to match.
+    int current = -1;
+    if (same_place && m_target.contains(QStringLiteral("name"))) {
+        QString target_name = m_target.value(QStringLiteral("name")).toString();
+        double target_ra = m_target.value(QStringLiteral("ra")).toDouble();
+        double target_dec = m_target.value(QStringLiteral("dec")).toDouble();
+        for (std::size_t i = 0; i < choices.size() && current < 0; i++) {
+            if (display_name(choices[i]) != target_name)
+                continue;
+            // A body's position varies with the time shown, but its name is unique
+            if (choices[i].kind == Kind::Body ||
+                (std::fabs(choices[i].ra - target_ra) < 1e-3 && std::fabs(choices[i].dec - target_dec) < 1e-3))
+                current = int(i);
+        }
     }
-    for (const CatalogObject& o : m_sky->catalog().objects()) {
-        if (!o.is_messier && m_fov > 30.0)
-            break;
-        QVariantMap details;
-        details[QStringLiteral("name")] = o.common.isEmpty() ? o.name : o.name + QStringLiteral(" ") + o.common;
-        details[QStringLiteral("type")] = o.type;
-        if (o.has_mag)
-            details[QStringLiteral("mag")] = o.mag;
-        consider(o.ra_deg, o.dec_deg, 8.0, details);
+
+    const Choice& chosen = choices[chart::next_in_cycle(current, int(choices.size()))];
+    QVariantMap result;
+    switch (chosen.kind) {
+    case Kind::Star:
+        result = m_sky->starMap(stars[chosen.index]);
+        break;
+    case Kind::Object:
+        result = m_sky->objectMap(objects[chosen.index]);
+        break;
+    case Kind::Body:
+        // From the backend, not m_bodies, which holds the position at the time shown
+        result = m_sky->bodyMap(m_bodies[chosen.index].body);
+        break;
     }
-    for (const astro::BodyReport& r : m_bodies) {
-        QVariantMap details;
-        details[QStringLiteral("name")] = QString::fromStdString(r.name);
-        details[QStringLiteral("type")] = QStringLiteral("Solar system");
-        details[QStringLiteral("mag")] = r.magnitude;
-        consider(r.ra_deg, r.dec_deg, 16.0, details);
-    }
-    return best;
+    result[QStringLiteral("cycleIndex")] = chart::next_in_cycle(current, int(choices.size())) + 1;
+    result[QStringLiteral("cycleCount")] = int(choices.size());
+    return result;
 }

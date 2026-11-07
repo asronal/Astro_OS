@@ -75,6 +75,23 @@ Canvas {
             c.moveTo(12, 4); c.lineTo(21, 9); c.lineTo(12, 14); c.lineTo(3, 9); c.closePath()
             c.moveTo(3, 13.5); c.lineTo(12, 18.5); c.lineTo(21, 13.5)
             c.stroke()
+        } else if (name === "clock") {
+            c.arc(12, 12, 8.5, 0, Math.PI * 2)
+            c.moveTo(12, 7); c.lineTo(12, 12); c.lineTo(15.5, 14.5)
+            c.stroke()
+        } else if (name === "rings") {
+            c.arc(12, 12, 8.5, 0, Math.PI * 2)
+            c.stroke()
+            c.beginPath()
+            c.arc(12, 12, 4, 0, Math.PI * 2)
+            c.stroke()
+        } else if (name === "info") {
+            c.arc(12, 12, 8.5, 0, Math.PI * 2)
+            c.moveTo(12, 11); c.lineTo(12, 16.5)
+            c.stroke()
+            c.beginPath()
+            c.arc(12, 7.8, 1.1, 0, Math.PI * 2)
+            c.fill()
         } else if (name === "close") {
             c.moveTo(6, 6); c.lineTo(18, 18)
             c.moveTo(18, 6); c.lineTo(6, 18)

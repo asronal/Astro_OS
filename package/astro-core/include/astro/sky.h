@@ -61,11 +61,40 @@ double julian_from_utc(int year, int month, int day, int hour, int minute, doubl
 std::string utc_string(double jd);
 
 BodyReport body_report(Body body, const Observer& observer, double jd);
+
+// The same report without the search for rise and set, which is by far the slowest
+// part, so a chart can call it on every frame. horizon means nothing here, and the
+// rise, transit and set times are NaN.
+BodyReport body_position(Body body, const Observer& observer, double jd);
+
 Twilight twilight(const Observer& observer, double jd);
 
 // Bodies above min_alt_deg while the Sun is below -12 degrees during the next
 // night, highest first. The Sun is never included.
 std::vector<NightTarget> best_targets(const Observer& observer, double jd, double min_alt_deg);
+
+// When something fixed on the sky, such as a star or galaxy, next rises, crosses the
+// meridian and sets. Give its position for the date. Times are valid for rise and set
+// only with RisesAndSets, and max_alt_deg is its height as it crosses the meridian.
+struct FixedRiseSet {
+    Horizon horizon;
+    double rise_jd;
+    double transit_jd;
+    double set_jd;
+    double max_alt_deg;
+};
+
+FixedRiseSet fixed_rise_set(double ra_deg, double dec_deg, const Observer& observer, double jd);
+
+// The highest something gets in the next 24 hours while the Sun is below -12 degrees
+struct DarkBest {
+    bool has_dark_time;  // False where the Sun stays up, such as a northern summer
+    double max_alt_deg;
+    double best_jd;
+};
+
+DarkBest best_dark_time(Body body, const Observer& observer, double jd);
+DarkBest best_dark_time(double ra_deg, double dec_deg, const Observer& observer, double jd);
 
 void equatorial_to_horizontal(double ra_deg, double dec_deg, const Observer& observer, double jd,
                               double* az_deg, double* alt_deg);

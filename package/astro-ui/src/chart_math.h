@@ -119,6 +119,41 @@ inline double separation(double az1, double alt1, double az2, double alt2)
     return std::acos(std::clamp(cos_sep, -1.0, 1.0)) * kRadToDeg;
 }
 
+// The direction a given angle away from another, heading off at a bearing. A bearing
+// of 0 heads straight up towards the zenith.
+inline void point_at_bearing(double az, double alt, double radius, double bearing, double* out_az, double* out_alt)
+{
+    double a = alt * kDegToRad;
+    double r = radius * kDegToRad;
+    double b = bearing * kDegToRad;
+    double sin_out = std::sin(a) * std::cos(r) + std::cos(a) * std::sin(r) * std::cos(b);
+
+    *out_alt = std::asin(std::clamp(sin_out, -1.0, 1.0)) * kRadToDeg;
+    *out_az = az + std::atan2(std::sin(b) * std::sin(r) * std::cos(a), std::cos(r) - std::sin(a) * sin_out) * kRadToDeg;
+}
+
+// How much an eyepiece magnifies in a telescope
+inline double magnification(double telescope_mm, double eyepiece_mm)
+{
+    return telescope_mm / eyepiece_mm;
+}
+
+// How much real sky it shows, in degrees. The apparent field is the angle printed on
+// the eyepiece. This is the usual estimate, and is close enough for framing.
+inline double true_field(double telescope_mm, double eyepiece_mm, double apparent_field)
+{
+    return apparent_field / magnification(telescope_mm, eyepiece_mm);
+}
+
+// Which of several objects under a finger comes after the one chosen now. A current
+// of -1 means none of them is chosen yet.
+inline int next_in_cycle(int current, int count)
+{
+    if (count <= 0)
+        return -1;
+    return current < 0 ? 0 : (current + 1) % count;
+}
+
 } // namespace chart
 
 #endif

@@ -106,7 +106,7 @@ bool Catalog::load(const QString& directory, double jd)
         float minor = f.size() > 8 ? f[8].toFloat() : major;
         float angle = f.size() > 9 ? f[9].toFloat() : 0.0f;
         m_objects.append({f[0], f[1], f[2], float(ra), float(dec), f[5].toFloat(), !f[5].isEmpty(), is_messier,
-                          major, minor, angle});
+                          major, minor, angle, f.size() > 6 ? f[6] : QString()});
     }
 
     load_faint_stars(directory + QStringLiteral("/stars-faint.bin"), jd);

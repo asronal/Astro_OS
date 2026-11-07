@@ -74,23 +74,6 @@ void heading(const QString& text)
 }
 
 // Right ascension as hours, minutes and seconds
-QString format_ra(double degrees)
-{
-    double hours = std::fmod(degrees + 360.0, 360.0) / 15.0;
-    int h = int(hours);
-    int m = int((hours - h) * 60.0);
-    int s = int(((hours - h) * 60.0 - m) * 60.0);
-    return QStringLiteral("%1h %2m %3s").arg(h, 2, 10, QLatin1Char('0')).arg(m, 2, 10, QLatin1Char('0')).arg(s, 2, 10, QLatin1Char('0'));
-}
-
-QString format_dec(double degrees)
-{
-    double size = std::fabs(degrees);
-    int d = int(size);
-    int m = int((size - d) * 60.0);
-    return QStringLiteral("%1%2° %3'").arg(degrees < 0.0 ? QLatin1Char('-') : QLatin1Char('+')).arg(d, 2, 10, QLatin1Char('0')).arg(m, 2, 10, QLatin1Char('0'));
-}
-
 QString format_offset(int minutes)
 {
     int size = std::abs(minutes);
@@ -365,32 +348,19 @@ int cmd_report_object(Shell& shell, int objc, Tcl_Obj* const* objv)
     if (shell.find_object(arg_text(objv[1]), &object) != TCL_OK)
         return TCL_ERROR;
 
-    double ra = object.value(QStringLiteral("ra")).toDouble();
-    double dec = object.value(QStringLiteral("dec")).toDouble();
-    double jd = astro::julian_now();
-
     heading(object.value(QStringLiteral("name")).toString());
     if (object.contains(QStringLiteral("type")))
-        std::printf("  Type             %s\n", qPrintable(object.value(QStringLiteral("type")).toString()));
-    if (object.contains(QStringLiteral("mag")))
-        std::printf("  Magnitude        %.1f\n", object.value(QStringLiteral("mag")).toDouble());
-    std::printf("  Right ascension  %s\n", qPrintable(format_ra(ra)));
-    std::printf("  Declination      %s\n", qPrintable(format_dec(dec)));
-    std::printf("  Height           %.1f°\n", object.value(QStringLiteral("alt")).toDouble());
-    std::printf("  Bearing          %.1f°\n", object.value(QStringLiteral("az")).toDouble());
-    if (object.contains(QStringLiteral("rise"))) {
-        std::printf("  Rises, sets      %s, %s\n", qPrintable(object.value(QStringLiteral("rise")).toString()),
-                    qPrintable(object.value(QStringLiteral("set")).toString()));
-    }
-    std::printf("  From the Sun     %.1f°\n", astro::sun_separation_deg(ra, dec, jd));
+        std::printf("  %-16s %s\n", "Type", qPrintable(object.value(QStringLiteral("type")).toString()));
 
-    const char* verdict = "";
-    switch (astro::check_goto(ra, dec, shell.sky()->observer(), jd, astro::kDefaultGotoLimits, false)) {
-    case astro::GotoVerdict::Allowed: verdict = "allowed"; break;
-    case astro::GotoVerdict::TooCloseToSun: verdict = "refused, too close to the Sun"; break;
-    case astro::GotoVerdict::BelowHorizon: verdict = "refused, below the horizon"; break;
+    // The same details as the touch app, including the same GoTo safety check
+    QVariantMap details = shell.sky()->targetDetails(object, 0.0, false);
+    const QVariantList rows = details.value(QStringLiteral("rows")).toList();
+    for (const QVariant& row : rows) {
+        QVariantMap fields = row.toMap();
+        std::printf("  %-16s %s\n", qPrintable(fields.value(QStringLiteral("label")).toString()),
+                    qPrintable(fields.value(QStringLiteral("value")).toString()));
     }
-    std::printf("  GoTo             %s\n\n", verdict);
+    std::putchar('\n');
     return TCL_OK;
 }
 

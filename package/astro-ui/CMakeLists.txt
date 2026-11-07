@@ -71,6 +71,11 @@ if(ASTRO_UI_BUILD_TESTS)
     add_executable(test_chart_math tests/test_chart_math.cpp)
     target_include_directories(test_chart_math PRIVATE src)
 
+    qt_add_executable(test_chart_tap tests/test_chart_tap.cpp src/catalog.cpp src/auto_detect.cpp src/sky_backend.cpp src/sky_chart.cpp)
+    target_include_directories(test_chart_tap PRIVATE src)
+    target_link_libraries(test_chart_tap PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml Qt6::Quick
+        ${ASTRO_CORE_LIBRARY} ${NOVA_LIBRARY})
+
     qt_add_executable(test_auto_detect tests/test_auto_detect.cpp src/auto_detect.cpp)
     target_include_directories(test_auto_detect PRIVATE src)
     target_link_libraries(test_auto_detect PRIVATE Qt6::Core)
@@ -79,10 +84,13 @@ if(ASTRO_UI_BUILD_TESTS)
     target_include_directories(mount_e2e PRIVATE src ${INDI_INCLUDE_DIR}/libindi)
     target_link_libraries(mount_e2e PRIVATE Qt6::Core Qt6::Network ${ASTRO_CORE_LIBRARY} ${NOVA_LIBRARY} ${INDICLIENT_LIBRARY})
 
-    qt_add_executable(ui_screens tests/ui_screens.cpp src/catalog.cpp src/auto_detect.cpp src/sky_backend.cpp src/sky_chart.cpp src/mount_client.cpp)
-    qt_add_resources(ui_screens "qml" PREFIX "/" FILES
+    set(ASTRO_UI_TEST_RESOURCES
         qml/Main.qml qml/AText.qml qml/AstroButton.qml qml/Card.qml qml/Glyph.qml qml/Logo.qml qml/MoonDisc.qml qml/PolarDial.qml qml/TonightPage.qml qml/SkyPage.qml qml/MountPage.qml qml/ToolsPage.qml qml/SettingsPage.qml data/fonts/IBMPlexSans.ttf data/fonts/IBMPlexMono-Regular.ttf data/fonts/IBMPlexMono-Medium.ttf data/fonts/SpaceGrotesk.ttf)
-    target_include_directories(ui_screens PRIVATE src ${INDI_INCLUDE_DIR}/libindi)
-    target_link_libraries(ui_screens PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml Qt6::Quick
-        ${ASTRO_CORE_LIBRARY} ${NOVA_LIBRARY} ${INDICLIENT_LIBRARY})
+    foreach(ui_test ui_screens ui_e2e)
+        qt_add_executable(${ui_test} tests/${ui_test}.cpp src/catalog.cpp src/auto_detect.cpp src/sky_backend.cpp src/sky_chart.cpp src/mount_client.cpp)
+        qt_add_resources(${ui_test} "qml" PREFIX "/" FILES ${ASTRO_UI_TEST_RESOURCES})
+        target_include_directories(${ui_test} PRIVATE src ${INDI_INCLUDE_DIR}/libindi)
+        target_link_libraries(${ui_test} PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml Qt6::Quick
+            ${ASTRO_CORE_LIBRARY} ${NOVA_LIBRARY} ${INDICLIENT_LIBRARY})
+    endforeach()
 endif()

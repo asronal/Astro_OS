@@ -38,6 +38,7 @@ struct CatalogObject {
     float major_arcmin;  // Real size on the sky, or 0 if unknown
     float minor_arcmin;
     float angle_deg;     // Long axis, from north through east
+    QString other_name;  // M31 is also NGC 224
 };
 
 struct FaintStar {

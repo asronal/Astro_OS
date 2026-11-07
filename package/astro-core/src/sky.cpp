@@ -148,7 +148,9 @@ double standard_horizon(Body body)
 
 int rise_set(Body body, double jd, ln_lnlat_posn* observer, double horizon, ln_rst_time* rst)
 {
-    return ln_get_body_rst_horizon(jd, observer, equ_of_date_function(body), horizon, rst);
+    // Without "next", libnova can return an event from earlier the same day, or one
+    // from tomorrow when another comes sooner
+    return ln_get_body_next_rst_horizon(jd, observer, equ_of_date_function(body), horizon, rst);
 }
 
 Horizon to_horizon(int result)
@@ -243,12 +245,11 @@ void equatorial_to_horizontal(double ra_deg, double dec_deg, const Observer& obs
     *alt_deg = horizontal.alt;
 }
 
-BodyReport body_report(Body body, const Observer& observer, double jd)
+BodyReport body_position(Body body, const Observer& observer, double jd)
 {
     BodyReport report;
     ln_equ_posn geocentric;
     ln_equ_posn parallax;
-    ln_rst_time rst;
     ln_lnlat_posn position = to_lnlat(observer);
 
     report.body = body;
@@ -273,11 +274,61 @@ BodyReport body_report(Body body, const Observer& observer, double jd)
                                    2.0 * geocentric_au * radius_au *
                                    std::sin(geocentric_alt * M_PI / 180.0));
 
+    report.horizon = Horizon::RisesAndSets;
+    report.rise_jd = std::nan("");
+    report.transit_jd = std::nan("");
+    report.set_jd = std::nan("");
+    return report;
+}
+
+BodyReport body_report(Body body, const Observer& observer, double jd)
+{
+    BodyReport report = body_position(body, observer, jd);
+    ln_rst_time rst;
+    ln_lnlat_posn position = to_lnlat(observer);
+
     report.horizon = to_horizon(rise_set(body, jd, &position, standard_horizon(body), &rst));
     report.rise_jd = rst.rise;
     report.transit_jd = rst.transit;
     report.set_jd = rst.set;
     return report;
+}
+
+FixedRiseSet fixed_rise_set(double ra_deg, double dec_deg, const Observer& observer, double jd)
+{
+    // How far the sky turns per day, against the stars rather than the Sun
+    const double degrees_per_day = 360.98564736629;
+    const double lat = observer.lat_deg * M_PI / 180.0;
+    const double dec = dec_deg * M_PI / 180.0;
+    const double horizon = LN_STAR_STANDART_HORIZON * M_PI / 180.0;
+
+    // The hour angle is how far it has turned past the meridian
+    double hour_angle = local_sidereal_deg(observer, jd) - ra_deg;
+    auto days_until = [&](double wanted_hour_angle) {
+        return wrap_360(wanted_hour_angle - hour_angle) / degrees_per_day;
+    };
+
+    FixedRiseSet result;
+    result.max_alt_deg = 90.0 - std::fabs(observer.lat_deg - dec_deg);
+    result.transit_jd = jd + days_until(0.0);
+    result.rise_jd = std::nan("");
+    result.set_jd = std::nan("");
+
+    // The hour angle at which it crosses the horizon, from the spherical triangle
+    // between the pole, the zenith and the object
+    double divisor = std::cos(lat) * std::cos(dec);
+    double numerator = std::sin(horizon) - std::sin(lat) * std::sin(dec);
+    if (numerator >= divisor) {
+        result.horizon = Horizon::NeverUp;
+    } else if (numerator <= -divisor) {
+        result.horizon = Horizon::AlwaysUp;
+    } else {
+        double crossing = std::acos(numerator / divisor) * 180.0 / M_PI;
+        result.horizon = Horizon::RisesAndSets;
+        result.rise_jd = jd + days_until(-crossing);
+        result.set_jd = jd + days_until(crossing);
+    }
+    return result;
 }
 
 Twilight twilight(const Observer& observer, double jd)
@@ -304,9 +355,47 @@ Twilight twilight(const Observer& observer, double jd)
     return result;
 }
 
-std::vector<NightTarget> best_targets(const Observer& observer, double jd, double min_alt_deg)
+namespace {
+
+template <typename AltitudeAt>
+DarkBest search_dark_time(const Observer& observer, double jd, AltitudeAt altitude_at)
 {
     const double step_days = 15.0 / 1440.0;
+    DarkBest best = {false, -90.0, jd};
+
+    // Search the next 24 hours, counting only times when the sky is dark
+    for (double t = jd; t < jd + 1.0; t += step_days) {
+        if (sun_altitude(observer, t) > kNightSunAltitude)
+            continue;
+        best.has_dark_time = true;
+        double alt = altitude_at(t);
+        if (alt > best.max_alt_deg) {
+            best.max_alt_deg = alt;
+            best.best_jd = t;
+        }
+    }
+    return best;
+}
+
+} // namespace
+
+DarkBest best_dark_time(Body body, const Observer& observer, double jd)
+{
+    return search_dark_time(observer, jd, [&](double t) { return body_position(body, observer, t).alt_deg; });
+}
+
+DarkBest best_dark_time(double ra_deg, double dec_deg, const Observer& observer, double jd)
+{
+    return search_dark_time(observer, jd, [&](double t) {
+        double az;
+        double alt;
+        equatorial_to_horizontal(ra_deg, dec_deg, observer, t, &az, &alt);
+        return alt;
+    });
+}
+
+std::vector<NightTarget> best_targets(const Observer& observer, double jd, double min_alt_deg)
+{
     std::vector<NightTarget> targets;
 
     for (Body body : all_bodies()) {
@@ -316,19 +405,9 @@ std::vector<NightTarget> best_targets(const Observer& observer, double jd, doubl
         NightTarget target;
         target.body = body;
         target.name = body_name(body);
-        target.max_alt_deg = -90.0;
-        target.best_jd = jd;
-
-        // Search the next 24 hours, counting only times when the sky is dark
-        for (double t = jd; t < jd + 1.0; t += step_days) {
-            if (sun_altitude(observer, t) > kNightSunAltitude)
-                continue;
-            BodyReport report = body_report(body, observer, t);
-            if (report.alt_deg > target.max_alt_deg) {
-                target.max_alt_deg = report.alt_deg;
-                target.best_jd = t;
-            }
-        }
+        DarkBest best = best_dark_time(body, observer, jd);
+        target.max_alt_deg = best.max_alt_deg;
+        target.best_jd = best.best_jd;
         if (target.max_alt_deg >= min_alt_deg)
             targets.push_back(target);
     }

@@ -6,6 +6,7 @@
 #include <QPainter>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QQmlProperty>
 #include <QQuickWindow>
 #include <QTemporaryDir>
 #include <QTimer>
@@ -60,6 +61,9 @@ int main(int argc, char *argv[])
     }
 
     auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
+    // As a tap on a tab does. page starts as a binding, which setProperty would leave in
+    // place, so that any later settings update would send the app back to the first page.
+    auto go_to_page = [&](int number) { QQmlProperty::write(window, QStringLiteral("page"), number); };
     window->setVisibility(QWindow::Windowed);
     window->resize(800, 480);
     wait_ms(4000);
@@ -68,7 +72,7 @@ int main(int argc, char *argv[])
     int count = argc < 4 ? 5 : 1;
     for (int page = 0; page < count; page++) {
         int index = argc < 4 ? page : 4;
-        window->setProperty("page", index);
+        go_to_page(index);
         wait_ms(3000);
         QImage image = window->grabWindow();
         QString path = out + QLatin1Char('/') + (night ? QStringLiteral("night-") : QStringLiteral("day-")) +
@@ -86,7 +90,7 @@ int main(int argc, char *argv[])
             {"sky-below", 180.0, -8.0, 60.0},
             {"sky-zoom", 120.0, 40.0, 25.0},
         };
-        window->setProperty("page", 1);
+        go_to_page(1);
 
         // The same sky at chosen hours, by moving to where the Sun is at those times
         const struct { const char *name; double sun_alt; double fov; double look_up; } times[] = {
@@ -205,6 +209,87 @@ int main(int argc, char *argv[])
             std::printf("frame %s %.1f ms\n", view.name, total / 10.0 / 1e6);
             std::fflush(stdout);
         }
+
+        // The cost of a frame while the time slider is being dragged
+        {
+            QImage frame(int(chart->width()), int(chart->height()), QImage::Format_ARGB32_Premultiplied);
+            QElapsedTimer timer;
+            qint64 total = 0;
+            for (int i = 1; i <= 10; i++) {
+                chart->setProperty("timeOffsetHours", i * 0.25);
+                QPainter painter(&frame);
+                timer.start();
+                chart->paint(&painter);
+                total += timer.nsecsElapsed();
+            }
+            chart->setProperty("timeOffsetHours", 0.0);
+            std::printf("frame time-drag %.1f ms\n", total / 10.0 / 1e6);
+            std::fflush(stdout);
+        }
+
+        // The panels on the Sky page
+        auto *page = window->findChild<QObject *>(QStringLiteral("skyPage"));
+        auto select = [&](const QString &name) {
+            QMetaObject::invokeMethod(window, "selectTarget", Q_ARG(QVariant, QVariant(sky.findExact(name))));
+        };
+        auto look_at = [&](const QString &name, double fov, double hours) {
+            select(name);
+            QMetaObject::invokeMethod(page, "setPreview", Q_ARG(QVariant, QVariant(int(std::round(hours / 24.0)))),
+                                      Q_ARG(QVariant, QVariant(hours - std::round(hours / 24.0) * 24.0)));
+            chart->centerOnTarget();
+            chart->setFieldOfView(fov);
+        };
+
+        // A sensible preview of M31, with the details open
+        double m31_hours = when_high(10.68, 41.27);
+        look_at(QStringLiteral("M31"), 30.0, m31_hours);
+        page->setProperty("detailsOpen", true);
+        save_view(QStringLiteral("sky-details-m31"));
+        look_at(QStringLiteral("Moon"), 30.0, 0.0);
+        save_view(QStringLiteral("sky-details-moon"));
+        page->setProperty("timeOpen", true);
+        look_at(QStringLiteral("Jupiter"), 40.0, 3.5);
+        save_view(QStringLiteral("sky-details-and-time"));
+        page->setProperty("detailsOpen", false);
+        look_at(QStringLiteral("M31"), 30.0, m31_hours);
+        save_view(QStringLiteral("sky-time"));
+        page->setProperty("timeOpen", false);
+        save_view(QStringLiteral("sky-preview-chip"));
+
+        // Rings, using made-up example equipment
+        page->setProperty("ringsOpen", true);
+        save_view(QStringLiteral("sky-rings-empty"));
+        sky.setTelescopeFocal(1000.0);
+        sky.addEyepiece(32.0, 52.0);
+        sky.addEyepiece(25.0, 52.0);
+        sky.addEyepiece(10.0, 82.0);
+        wait_ms(300);
+        look_at(QStringLiteral("M31"), 5.0, m31_hours);
+        save_view(QStringLiteral("sky-rings"));
+        page->setProperty("ringsOpen", false);
+        save_view(QStringLiteral("sky-rings-closed"));
+
+        // A tap on a crowded place, as the app would handle it
+        QVariantMap pleiades = sky.findExact(QStringLiteral("M45"));
+        look_at(QStringLiteral("M45"), 20.0, when_high(pleiades.value(QStringLiteral("ra")).toDouble(), pleiades.value(QStringLiteral("dec")).toDouble()));
+        sky.setEyepieceOn(0, false);
+        sky.setEyepieceOn(1, false);
+        sky.setEyepieceOn(2, false);
+        QMetaObject::invokeMethod(window, "selectTarget", Q_ARG(QVariant, QVariant(QVariantMap())));
+        for (int tap = 0; tap < 2; tap++) {
+            QVariantMap tapped = chart->nextObjectAt(chart->width() / 2.0, chart->height() / 2.0);
+            QMetaObject::invokeMethod(window, "selectTarget", Q_ARG(QVariant, QVariant(tapped)));
+            std::printf("tap %d: %s (%d of %d)\n", tap + 1, qPrintable(tapped.value(QStringLiteral("name")).toString()),
+                        tapped.value(QStringLiteral("cycleIndex")).toInt(), tapped.value(QStringLiteral("cycleCount")).toInt());
+        }
+        save_view(QStringLiteral("sky-cycle"));
+
+        // Equipment in Settings
+        go_to_page(4);
+        wait_ms(500);
+        if (auto *scroll = window->findChild<QObject *>(QStringLiteral("settingsScroll")))
+            scroll->setProperty("contentY", scroll->property("contentHeight").toDouble() - scroll->property("height").toDouble());
+        save_view(QStringLiteral("settings-equipment"));
     }
     return 0;
 }

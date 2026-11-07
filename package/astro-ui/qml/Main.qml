@@ -15,9 +15,14 @@ Window {
     readonly property bool navigationShown: !keyboard.active && !(skyPage && skyFullView)
     readonly property int headerHeight: 52
     readonly property int navigationHeight: navigationShown ? 58 : 0
+    // Set while the Sky page shows a time other than now
+    property string skyPreviewText: ""
+    signal timeControlsRequested()
 
+    // A target always holds its real position for now, wherever it came from, so that
+    // a time preview on the chart can never be what gets sent to the mount
     function selectTarget(object) {
-        target = object
+        target = object.name !== undefined ? sky.livePosition(object) : object
     }
 
     visible: true
@@ -142,7 +147,27 @@ Window {
                         }
                     }
                 }
-
+                // Up here, beside the real clock, so that no panel can ever cover it
+                Rectangle {
+                    objectName: "previewChip"
+                    visible: root.skyPage && root.skyPreviewText.length > 0
+                    Layout.preferredHeight: 30
+                    Layout.preferredWidth: previewText.implicitWidth + 24
+                    radius: 15
+                    color: theme.accent
+                    AText {
+                        id: previewText
+                        anchors.centerIn: parent
+                        color: theme.accentInk
+                        font.pixelSize: 13
+                        weight: 600
+                        text: root.skyPreviewText
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: root.timeControlsRequested()
+                    }
+                }
 
                 Item { Layout.fillWidth: true }
 

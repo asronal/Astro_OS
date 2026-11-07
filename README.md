@@ -124,7 +124,10 @@ Without a Pi, using QEMU:
 **Touch app**
 
 - Tonight: Moon phase, dark sky times, best targets, and the Sun, Moon and planets
-- Sky Chart: about 83,000 stars and 895 deep-sky objects at their real sizes, with star colours, constellations, the Milky Way, the Moon's real phase, daylight and dusk, plus pan, pinch, search and tap for details
+- Sky Chart: about 83,000 stars and 895 deep-sky objects at their real sizes, with star colours, constellations, the Milky Way, the Moon's real phase, daylight and dusk, plus pan, pinch and search
+- Tap an object for its details: when it rises, sets and is best seen, its size, phase and distance, and whether GoTo would allow it. Tap again for the next object there
+- Time preview: see the sky up to 30 days ahead or behind. This only changes what the chart shows, and Sync and GoTo stay off until you return to now
+- Eyepiece rings: enter your telescope and eyepieces to see how much sky each one takes in. The size is the usual estimate, apparent field divided by magnification
 - Mount: choice of 10 mount types through INDI, GoTo, Sync, tracking, parking and manual moves
 - Tools: field of view, image scale, exposure limits and a polar alignment dial
 - Red night mode, and a STOP button on every screen

@@ -22,6 +22,7 @@ static double angle_difference(double a, double b)
 
 int main()
 {
+    double x_out, y_out;
     const double kAlts[] = {-8.0, 0.0, 2.0, 45.0, 89.0, 90.0};
     const double kFovs[] = {5.0, 25.0, 90.0, 180.0};
 
@@ -75,6 +76,45 @@ int main()
     check(std::fabs(alt - 38.5) < 1e-6, "height on the meridian", alt, 38.5);
 
     check(std::fabs(chart::separation(10.0, 0.0, 40.0, 0.0) - 30.0) < 1e-6, "separation", 0.0, 0.0);
+
+    // A ring on the sky stays the right size wherever it is, including near the zenith
+    for (double center_alt : {0.0, 20.0, 45.0, 80.0, 89.5}) {
+        for (double center_az : {0.0, 90.0, 275.0}) {
+            for (double radius : {0.05, 0.5, 2.0, 30.0}) {
+                for (double bearing = 0.0; bearing < 360.0; bearing += 15.0) {
+                    double ring_az, ring_alt;
+                    chart::point_at_bearing(center_az, center_alt, radius, bearing, &ring_az, &ring_alt);
+                    double apart = chart::separation(center_az, center_alt, ring_az, ring_alt);
+                    check(std::fabs(apart - radius) < 1e-6, "ring radius", apart, radius);
+                }
+            }
+        }
+    }
+
+    // A bearing of 0 is straight up, and 90 is towards higher azimuth
+    double up_az, up_alt;
+    chart::point_at_bearing(100.0, 30.0, 5.0, 0.0, &up_az, &up_alt);
+    check(std::fabs(up_alt - 35.0) < 1e-6 && std::fabs(up_az - 100.0) < 1e-6, "bearing 0 is up", up_alt, up_az);
+    chart::point_at_bearing(100.0, 0.0, 5.0, 90.0, &up_az, &up_alt);
+    check(std::fabs(up_az - 105.0) < 1e-6, "bearing 90 is towards higher azimuth", up_az, 105.0);
+
+    // A ring in the middle of the view has the radius the projection promises
+    chart::View ring_view = chart::make_view(180.0, 45.0, 10.0, 800.0, 480.0);
+    chart::point_at_bearing(180.0, 45.0, 1.0, 90.0, &up_az, &up_alt);
+    chart::project(ring_view, up_az, up_alt, &x_out, &y_out);
+    double expected_px = 2.0 * ring_view.radius * std::tan(0.5 * chart::kDegToRad);
+    check(std::fabs(std::hypot(x_out - 400.0, y_out - 240.0) - expected_px) < 1e-6, "ring size on screen", x_out, expected_px);
+
+    // Worked by hand: 1000 mm with a 25 mm eyepiece is 40x, and 52 / 40 is 1.3 degrees
+    check(std::fabs(chart::magnification(1000.0, 25.0) - 40.0) < 1e-9, "magnification", 0.0, 0.0);
+    check(std::fabs(chart::true_field(1000.0, 25.0, 52.0) - 1.3) < 1e-9, "true field", 0.0, 0.0);
+    check(std::fabs(chart::true_field(650.0, 10.0, 82.0) - 82.0 / 65.0) < 1e-9, "true field, wide eyepiece", 0.0, 0.0);
+
+    check(chart::next_in_cycle(-1, 3) == 0, "first tap takes the nearest", 0.0, 0.0);
+    check(chart::next_in_cycle(0, 3) == 1, "second tap takes the next", 0.0, 0.0);
+    check(chart::next_in_cycle(2, 3) == 0, "the cycle wraps", 0.0, 0.0);
+    check(chart::next_in_cycle(0, 1) == 0, "one object stays chosen", 0.0, 0.0);
+    check(chart::next_in_cycle(-1, 0) == -1, "nothing to choose", 0.0, 0.0);
 
     std::printf("%d checks, %d failed\n", checks, failures);
     return failures == 0 ? 0 : 1;

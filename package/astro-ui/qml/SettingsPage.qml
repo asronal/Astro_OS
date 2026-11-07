@@ -36,6 +36,7 @@ Item {
     }
 
     Flickable {
+        objectName: "settingsScroll"
         anchors.fill: parent
         anchors.margins: 10
         contentHeight: content.implicitHeight
@@ -253,6 +254,91 @@ Item {
                             active: root.solarFilterFitted
                             onClicked: root.solarFilterFitted = !root.solarFilterFitted
                         }
+                    }
+                }
+            }
+
+            Card {
+                Layout.columnSpan: 2
+                Layout.fillWidth: true
+                Layout.preferredHeight: equipment.implicitHeight + 22
+                ColumnLayout {
+                    id: equipment
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 11
+                    spacing: 7
+
+                    Heading { text: "Telescope and eyepieces" }
+                    AText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: theme.dim
+                        font.pixelSize: 12
+                        text: "The Sky page can draw a ring showing how much sky each eyepiece takes in. Its size is an estimate from these numbers."
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Field {
+                            id: telescopeFocal
+                            objectName: "telescopeField"
+                            label: "Telescope focal length, mm"
+                            text: sky.telescopeFocalMm > 0 ? sky.telescopeFocalMm : ""
+                        }
+                        AstroButton {
+                            objectName: "saveTelescopeButton"
+                            Layout.alignment: Qt.AlignBottom
+                            text: "Save"
+                            onClicked: equipmentProblem.text = sky.setTelescopeFocal(parseFloat(telescopeFocal.text))
+                        }
+                    }
+                    Repeater {
+                        model: sky.eyepieces
+                        delegate: RowLayout {
+                            required property int index
+                            required property var modelData
+                            Layout.fillWidth: true
+                            spacing: 8
+                            AText {
+                                Layout.fillWidth: true
+                                elide: Text.ElideRight
+                                font.pixelSize: 14
+                                text: modelData.label + (modelData.fieldDeg === undefined ? ", " + modelData.apparentField + "° apparent field" : "")
+                            }
+                            AstroButton {
+                                text: "Remove"
+                                style: "quiet"
+                                onClicked: sky.removeEyepiece(index)
+                            }
+                        }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Field { id: eyepieceFocal; objectName: "eyepieceField"; label: "Eyepiece focal length, mm" }
+                        Field { id: eyepieceField; label: "Apparent field, degrees"; text: "52" }
+                        AstroButton {
+                            objectName: "addEyepieceButton"
+                            Layout.alignment: Qt.AlignBottom
+                            text: "Add"
+                            onClicked: {
+                                equipmentProblem.text = sky.addEyepiece(parseFloat(eyepieceFocal.text), parseFloat(eyepieceField.text))
+                                if (equipmentProblem.text.length === 0)
+                                    eyepieceFocal.text = ""
+                            }
+                        }
+                    }
+                    AText {
+                        id: equipmentProblem
+                        objectName: "equipmentProblem"
+                        visible: text.length > 0
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: theme.danger
+                        font.pixelSize: 12
+                        text: ""
                     }
                 }
             }
