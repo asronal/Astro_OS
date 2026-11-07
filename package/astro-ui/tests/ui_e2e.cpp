@@ -2,7 +2,9 @@
 //
 // The point is the whole path from finger to mount: a planet chosen while the chart
 // shows another date must slew to where the planet really is now.
+#include <QDirIterator>
 #include <QElapsedTimer>
+#include <QFile>
 #include <QGuiApplication>
 #include <QMouseEvent>
 #include <QQmlApplicationEngine>
@@ -20,6 +22,8 @@
 
 #include "astro/sky.h"
 #include "chart_math.h"
+#include "camera_client.h"
+#include "camera_view.h"
 #include "input_mode.h"
 #include "mount_client.h"
 #include "sky_backend.h"
@@ -115,14 +119,18 @@ int main(int argc, char* argv[])
     sky.setLocation(51.4769, -0.0005, 46.0);
     MountClient mount(&sky, config.path() + QStringLiteral("/astro-hub.conf"));
     InputMode input_mode;
+    QTemporaryDir captures;
+    CameraClient camera(captures.path());
 
     qmlRegisterType<SkyChart>("Astro", 1, 0, "SkyChart");
+    qmlRegisterType<CameraView>("Astro", 1, 0, "CameraView");
     qmlRegisterUncreatableType<SkyBackend>("Astro", 1, 0, "SkyBackend", QStringLiteral("Use the sky object"));
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("sky"), &sky);
     engine.rootContext()->setContextProperty(QStringLiteral("mount"), &mount);
     engine.rootContext()->setContextProperty(QStringLiteral("inputMode"), &input_mode);
+    engine.rootContext()->setContextProperty(QStringLiteral("camera"), &camera);
     engine.rootContext()->setContextProperty(QStringLiteral("runWindowed"), true);
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
     if (engine.rootObjects().isEmpty()) {
@@ -301,7 +309,7 @@ int main(int argc, char* argv[])
     finger.tap("layersButton");
 
     // Equipment, typed into the real form. The form scrolls, so bring it into view.
-    go_to_page(4);
+    go_to_page(5);
     settle(500);
     auto* scroll = window->findChild<QObject*>(QStringLiteral("settingsScroll"));
     auto scroll_to_form = [&]() {
@@ -400,8 +408,8 @@ int main(int argc, char* argv[])
     // Pages and night mode
     press_key(Qt::Key_1, QStringLiteral("1"));
     report("1 goes to the first page", window->property("page").toInt() == 0);
-    press_key(Qt::Key_5, QStringLiteral("5"));
-    report("5 goes to the last page", window->property("page").toInt() == 4);
+    press_key(Qt::Key_6, QStringLiteral("6"));
+    report("6 goes to the last page", window->property("page").toInt() == 5);
     press_key(Qt::Key_2, QStringLiteral("2"));
     report("2 goes to the Sky page", window->property("page").toInt() == 1);
     settle(300);
@@ -527,6 +535,13 @@ int main(int argc, char* argv[])
     report("No letter key starts a slew", !mount.slewing());
 
     // GoTo by Tab and Enter, then STOP by Space
+    // The mount is still on this planet from before, so that a slew would be over before
+    // it could be seen. Tell it that it's somewhere else, so it has a long way to go.
+    {
+        QVariantMap here = sky.bodyMap(chosen);
+        mount.syncTarget(std::fmod(here.value(QStringLiteral("ra")).toDouble() + 40.0, 360.0), here.value(QStringLiteral("dec")).toDouble());
+        settle(1500);
+    }
     report("Tab reaches GoTo", press_tab_until("gotoButton"));
     press_key(Qt::Key_Return);
     report("Enter on it starts a slew", wait_for([&]() { return mount.slewing(); }, 20000));
@@ -552,7 +567,7 @@ int main(int argc, char* argv[])
     settle(200);
 
     // Text fields can be reached, and the page follows the focus off its bottom
-    go_to_page(4);
+    go_to_page(5);
     settle(400);
     report("Tab reaches the last button in Settings", press_tab_until("showKeysButton"));
     QPointF focused_at = finger.center_of("showKeysButton");
@@ -565,6 +580,138 @@ int main(int argc, char* argv[])
     go_to_page(1);
     settle(300);
 
+    // The camera, by finger, against INDI's camera simulator
+    auto find = [&](const char* name) { return Finger::find_item(window->contentItem(), QString::fromLatin1(name)); };
+    auto set_field = [&](const char* name, const QString& text) { find(name)->setProperty("text", text); };
+    auto camera_page = [&]() { return window->findChild<QObject*>(QStringLiteral("cameraPage")); };
+    auto saved_files = [&]() {
+        QStringList files;
+        QDirIterator it(captures.path(), QDir::Files, QDirIterator::Subdirectories);
+        while (it.hasNext())
+            files << it.next();
+        return files;
+    };
+
+    go_to_page(3);
+    settle(400);
+    report("The camera is found", wait_for([&]() { return camera.cameraFound(); }, kConnectTimeoutMs), camera.deviceName());
+    finger.tap("cameraConnectButton");
+    report("Connects to the camera", wait_for([&]() { return camera.cameraConnected(); }, kConnectTimeoutMs));
+    settle(3000);
+
+    // Things that make no sense are refused, and nothing is taken
+    for (const char* bad : {"abc", "0", "-1", "7200"}) {
+        set_field("exposureField", QString::fromLatin1(bad));
+        finger.tap("captureButton");
+        report("A nonsense exposure is refused", !camera.capturing() && !camera_page()->property("problem").toString().isEmpty(), QString::fromLatin1(bad));
+    }
+    set_field("exposureField", QStringLiteral("0.5"));
+    set_field("framesField", QStringLiteral("0"));
+    finger.tap("captureButton");
+    report("Zero pictures are refused", !camera.capturing() && saved_files().isEmpty());
+
+    // A short sequence, with every frame on disk and readable
+    set_field("framesField", QStringLiteral("3"));
+    finger.tap("captureButton");
+    report("The button starts a sequence", camera.capturing() && camera_page()->property("problem").toString().isEmpty(), camera_page()->property("problem").toString());
+    report("The sequence finishes", wait_for([&]() { return !camera.capturing(); }, kSlewTimeoutMs), camera.message());
+    report("It took all its pictures", camera.frameNumber() == 3, QString::number(camera.frameNumber()));
+    QStringList files = saved_files();
+    report("Each one was saved, as its own file", files.size() == 3, QString::number(files.size()));
+    bool all_readable = !files.isEmpty();
+    for (const QString& file : files) {
+        QFile saved(file);
+        saved.open(QIODevice::ReadOnly);
+        FrameData read_back = read_fits_frame(saved.readAll(), 1280, 800, 480);
+        all_readable = all_readable && read_back.error.isEmpty() && read_back.full_width > 0;
+    }
+    report("Each file is a whole, readable picture", all_readable);
+    report("The last one saved is known", files.contains(camera.lastSaved()), camera.lastSaved());
+    report("The picture is shown", camera.hasFrame() && !camera.previewImage().isNull(),
+           QStringLiteral("%1 x %2").arg(camera.previewImage().width()).arg(camera.previewImage().height()));
+    report("With a histogram and measurements", !camera.histogram().isEmpty() && !camera.statsText().isEmpty(), camera.statsText());
+
+    // The picture's buttons, and night mode
+    QImage stretched = camera.previewImage();
+    finger.tap("stretchButton");
+    settle(100);
+    report("Stretch changes what's shown", !camera.stretch() && camera.previewImage() != stretched);
+    finger.tap("stretchButton");
+    settle(100);
+    QSize whole = camera.previewImage().size();
+    finger.tap("detailButton");
+    settle(100);
+    report("Focus shows the middle at full detail", camera.showDetail() && !camera.previewImage().isNull(),
+           QStringLiteral("%1 x %2").arg(camera.previewImage().width()).arg(camera.previewImage().height()));
+    finger.tap("detailButton");
+    settle(100);
+    report("And goes back to the whole frame", camera.previewImage().size() == whole);
+
+    sky.setNightMode(true);
+    settle(200);
+    {
+        QImage night = camera.previewImage();
+        bool all_red = !night.isNull();
+        for (int y = 0; y < night.height() && all_red; y++) {
+            for (int x = 0; x < night.width() && all_red; x++)
+                all_red = qGreen(night.pixel(x, y)) == 0 && qBlue(night.pixel(x, y)) == 0;
+        }
+        report("At night the picture is entirely red", all_red);
+    }
+    sky.setNightMode(false);
+
+    // Cancelling part way through a long exposure
+    int before_cancel = saved_files().size();
+    set_field("exposureField", QStringLiteral("60"));
+    set_field("framesField", QStringLiteral("5"));
+    finger.tap("captureButton");
+    report("A long exposure starts", camera.capturing());
+    settle(2500);
+    finger.tap("cancelButton");
+    report("Cancel stops it straight away", !camera.capturing());
+    settle(2500);
+    report("And saves nothing", saved_files().size() == before_cancel, QString::number(saved_files().size() - before_cancel));
+    set_field("exposureField", QStringLiteral("0.5"));
+    set_field("framesField", QStringLiteral("1"));
+    finger.tap("captureButton");
+    report("The camera still works afterwards", wait_for([&]() { return !camera.capturing(); }, kSlewTimeoutMs) && saved_files().size() == before_cancel + 1, camera.message());
+
+    // A full disk stops things tidily, keeping what was already saved
+    const qint64 kImpossible = qint64(1) << 60;
+    camera.setMinimumFreeBytes(kImpossible);
+    int before_full = saved_files().size();
+    QString refused_full = camera.capture(0.5, 1);
+    report("A full disk refuses to start", !refused_full.isEmpty() && !camera.capturing(), refused_full);
+    camera.setMinimumFreeBytes(0);
+    camera.capture(0.5, 10);
+    report("A sequence starts when there's room", camera.capturing());
+    report("It takes its first picture", wait_for([&]() { return camera.frameNumber() >= 2 || !camera.capturing(); }, kSlewTimeoutMs));
+    camera.setMinimumFreeBytes(kImpossible);
+    report("The disk filling up stops the sequence", wait_for([&]() { return !camera.capturing(); }, kSlewTimeoutMs), camera.message());
+    report("Saying why", camera.message().contains(QStringLiteral("nearly full")));
+    int saved_before_full = saved_files().size() - before_full;
+    report("With the pictures so far kept", saved_before_full >= 1 && saved_before_full < 10, QString::number(saved_before_full));
+    camera.setMinimumFreeBytes(0);
+
+    if (camera.hasGain()) {
+        double wanted = camera.gainMin() + (camera.gainMax() - camera.gainMin()) / 2.0;
+        report("A sensible gain is accepted", camera.setGain(wanted).isEmpty());
+        report("And reaches the camera", wait_for([&]() { return std::fabs(camera.gain() - wanted) < 0.5; }, 5000), QString::number(camera.gain()));
+        report("A gain out of range is refused", !camera.setGain(camera.gainMax() + 1.0).isEmpty());
+    } else {
+        std::puts("This simulator offers no gain, so that wasn't tested");
+    }
+
+    // Changing cameras restarts what runs the mount, so it can't happen while connected
+    QString old_camera = mount.cameraDriver();
+    QString refused_change = mount.applyCameraDriver(QStringLiteral("indi_canon_ccd"));
+    report("Changing cameras is refused while a mount is connected", !refused_change.isEmpty() && mount.cameraDriver() == old_camera, refused_change);
+
+    finger.tap("cameraDisconnectButton");
+    report("The camera disconnects", wait_for([&]() { return !camera.cameraConnected(); }, 20000));
+    go_to_page(1);
+    settle(300);
+
     // Leaving the page never leaves a preview running
     set_preview(5.0);
     settle(100);
@@ -572,6 +719,23 @@ int main(int argc, char* argv[])
     settle(300);
     report("Leaving the Sky page returns to the present", offset() == 0.0, QString::number(offset()));
     report("And nothing is left saying otherwise", window->property("skyPreviewText").toString().isEmpty());
+
+    // Both choices live in one settings file, and neither may wipe out the other. This
+    // comes last as it restarts the device service.
+    mount.disconnectMount();
+    report("The mount disconnects", wait_for([&]() { return !mount.mountConnected(); }, 20000));
+    QString mount_driver = mount.driver();
+    report("Now the camera can be changed", mount.applyCameraDriver(QStringLiteral("indi_nikon_ccd")).isEmpty());
+    mount.applyProfile(mount_driver, mount.port(), false);
+    QFile hub_config(config.path() + QStringLiteral("/astro-hub.conf"));
+    hub_config.open(QIODevice::ReadOnly);
+    QByteArray hub_text = hub_config.readAll();
+    report("Saving the mount keeps the camera", hub_text.contains("CAMERA_DRIVER=\"indi_nikon_ccd\""));
+    report("And saving the camera kept the mount", hub_text.contains("DRIVERS=\"" + mount_driver.toUtf8() + "\""));
+    {
+        MountClient restarted(&sky, config.path() + QStringLiteral("/astro-hub.conf"));
+        report("Both are remembered after a restart", restarted.cameraDriver() == QStringLiteral("indi_nikon_ccd") && restarted.driver() == mount_driver);
+    }
 
     std::printf("%d failed\n", failures);
     return failures == 0 ? 0 : 1;

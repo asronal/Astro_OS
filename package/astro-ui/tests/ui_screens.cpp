@@ -16,6 +16,8 @@
 #include <cstdio>
 
 #include "astro/sky.h"
+#include "camera_client.h"
+#include "camera_view.h"
 #include "input_mode.h"
 #include "mount_client.h"
 #include "sky_backend.h"
@@ -48,14 +50,18 @@ int main(int argc, char *argv[])
     sky.setNightMode(night);
     MountClient mount(&sky, config.path() + QStringLiteral("/astro-hub.conf"));
     InputMode input_mode;
+    QTemporaryDir captures;
+    CameraClient camera(captures.path());
 
     qmlRegisterType<SkyChart>("Astro", 1, 0, "SkyChart");
+    qmlRegisterType<CameraView>("Astro", 1, 0, "CameraView");
     qmlRegisterUncreatableType<SkyBackend>("Astro", 1, 0, "SkyBackend", QStringLiteral("Use the sky object"));
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("sky"), &sky);
     engine.rootContext()->setContextProperty(QStringLiteral("mount"), &mount);
     engine.rootContext()->setContextProperty(QStringLiteral("inputMode"), &input_mode);
+    engine.rootContext()->setContextProperty(QStringLiteral("camera"), &camera);
     engine.rootContext()->setContextProperty(QStringLiteral("runWindowed"), true);
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
     if (engine.rootObjects().isEmpty()) {
@@ -73,10 +79,10 @@ int main(int argc, char *argv[])
     window->resize(size.at(0).toInt(), size.at(1).toInt());
     wait_ms(4000);
 
-    const char *names[] = {"tonight", "sky", "mount", "tools", "settings"};
-    int count = argc < 4 ? 5 : 1;
+    const char *names[] = {"tonight", "sky", "mount", "camera", "tools", "settings"};
+    int count = argc < 4 ? 6 : 1;
     for (int page = 0; page < count; page++) {
-        int index = argc < 4 ? page : 4;
+        int index = argc < 4 ? page : 5;
         go_to_page(index);
         wait_ms(3000);
         QImage image = window->grabWindow();
@@ -289,13 +295,42 @@ int main(int argc, char *argv[])
         }
         save_view(QStringLiteral("sky-cycle"));
 
+        // The Camera page with a picture on it, if a simulator is running
+        go_to_page(3);
+        wait_ms(1500);
+        for (int i = 0; i < 100 && !camera.cameraFound(); i++)
+            wait_ms(100);
+        if (camera.cameraFound()) {
+            camera.connectCamera();
+            for (int i = 0; i < 200 && !camera.cameraConnected(); i++)
+                wait_ms(100);
+            wait_ms(2000);
+            camera.capture(1.0, 1);
+            for (int i = 0; i < 600 && camera.capturing(); i++)
+                wait_ms(100);
+            save_view(QStringLiteral("camera-picture"));
+            camera.setShowDetail(true);
+            save_view(QStringLiteral("camera-focus"));
+            camera.setShowDetail(false);
+            camera.setStretch(false);
+            save_view(QStringLiteral("camera-plain"));
+            camera.setStretch(true);
+            camera.capture(600.0, 3);
+            wait_ms(1500);
+            save_view(QStringLiteral("camera-busy"));
+            camera.cancel();
+            std::printf("camera: %s\n", qPrintable(camera.statsText()));
+        }
+        go_to_page(1);
+        wait_ms(300);
+
         // The list of keys
         window->setProperty("helpOpen", true);
         save_view(QStringLiteral("keys"));
         window->setProperty("helpOpen", false);
 
         // Equipment in Settings
-        go_to_page(4);
+        go_to_page(5);
         wait_ms(500);
         if (auto *scroll = window->findChild<QObject *>(QStringLiteral("settingsScroll")))
             scroll->setProperty("contentY", scroll->property("contentHeight").toDouble() - scroll->property("height").toDouble());

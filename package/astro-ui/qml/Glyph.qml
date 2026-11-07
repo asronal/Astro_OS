@@ -75,6 +75,13 @@ Canvas {
             c.moveTo(12, 4); c.lineTo(21, 9); c.lineTo(12, 14); c.lineTo(3, 9); c.closePath()
             c.moveTo(3, 13.5); c.lineTo(12, 18.5); c.lineTo(21, 13.5)
             c.stroke()
+        } else if (name === "camera") {
+            c.moveTo(3, 8); c.lineTo(8, 8); c.lineTo(9.5, 5); c.lineTo(14.5, 5); c.lineTo(16, 8)
+            c.lineTo(21, 8); c.lineTo(21, 19); c.lineTo(3, 19); c.closePath()
+            c.stroke()
+            c.beginPath()
+            c.arc(12, 13, 3.5, 0, Math.PI * 2)
+            c.stroke()
         } else if (name === "clock") {
             c.arc(12, 12, 8.5, 0, Math.PI * 2)
             c.moveTo(12, 7); c.lineTo(12, 12); c.lineTo(15.5, 14.5)

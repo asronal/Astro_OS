@@ -15,6 +15,7 @@
 static const int kServerPort = 7624;
 static const int kReconnectMs = 3000;
 static const char kDefaultDriver[] = "indi_simulator_telescope";
+static const char kDefaultCameraDriver[] = "indi_simulator_ccd";
 static const char kDefaultPort[] = "/dev/ttyUSB0";
 static const char kHubScript[] = "/etc/init.d/S85astro-hub";
 
@@ -25,6 +26,7 @@ MountClient::MountClient(SkyBackend* sky, const QString& hub_config_path, QObjec
       m_connect_running(false),
       m_driver(QString::fromLatin1(kDefaultDriver)),
       m_port(QString::fromLatin1(kDefaultPort)),
+      m_camera_driver(QString::fromLatin1(kDefaultCameraDriver)),
       m_remote_access(false),
       m_server_up(false),
       m_connected(false),
@@ -49,6 +51,9 @@ MountClient::MountClient(SkyBackend* sky, const QString& hub_config_path, QObjec
 MountClient::~MountClient()
 {
     m_reconnect_timer.stop();
+    // The thread trying to connect uses this object, so it has to finish first
+    while (m_connect_running)
+        std::this_thread::yield();
     if (isServerConnected())
         disconnectServer();
 }
@@ -97,6 +102,8 @@ void MountClient::load_profile()
             m_driver = value.section(QLatin1Char(' '), 0, 0);
         else if (key == QLatin1String("PORT") && !value.isEmpty())
             m_port = value;
+        else if (key == QLatin1String("CAMERA_DRIVER") && !value.isEmpty())
+            m_camera_driver = value;
         else if (key == QLatin1String("REMOTE_ACCESS"))
             m_remote_access = value == QLatin1String("yes");
     }
@@ -107,19 +114,60 @@ void MountClient::applyProfile(const QString& driver, const QString& port, bool 
     m_driver = driver;
     m_port = port;
     m_remote_access = remote_access;
+    save_profile();
+    restart_hub();
+}
 
+QString MountClient::applyCameraDriver(const QString& driver)
+{
+    if (m_connected)
+        return tr("Disconnect the mount first, as this restarts the service that runs it.");
+    m_camera_driver = driver;
+    save_profile();
+    restart_hub();
+    return QString();
+}
+
+QVariantList MountClient::cameraDrivers() const
+{
+    static const struct { const char* label; const char* binary; } kDrivers[] = {
+        {"Simulator (no hardware)", "indi_simulator_ccd"},
+        {"Canon DSLR or mirrorless", "indi_canon_ccd"},
+        {"Nikon DSLR or mirrorless", "indi_nikon_ccd"},
+        {"Sony DSLR or mirrorless", "indi_sony_ccd"},
+        {"Fujifilm mirrorless", "indi_fuji_ccd"},
+        {"Pentax DSLR", "indi_pentax_ccd"},
+        {"Other camera through gPhoto", "indi_gphoto_ccd"},
+        {"USB webcam", "indi_v4l2_ccd"},
+    };
+    QVariantList list;
+    for (const auto& driver : kDrivers) {
+        QVariantMap map;
+        map[QStringLiteral("label")] = QString::fromLatin1(driver.label);
+        map[QStringLiteral("binary")] = QString::fromLatin1(driver.binary);
+        list.append(map);
+    }
+    return list;
+}
+
+void MountClient::save_profile()
+{
     QFile file(m_hub_config_path);
     if (file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
         QTextStream stream(&file);
-        stream << "DRIVERS=\"" << driver << "\"\n";
-        stream << "PORT=\"" << port << "\"\n";
-        stream << "REMOTE_ACCESS=\"" << (remote_access ? "yes" : "no") << "\"\n";
+        stream << "DRIVERS=\"" << m_driver << "\"\n";
+        stream << "CAMERA_DRIVER=\"" << m_camera_driver << "\"\n";
+        stream << "PORT=\"" << m_port << "\"\n";
+        stream << "REMOTE_ACCESS=\"" << (m_remote_access ? "yes" : "no") << "\"\n";
     } else {
         m_message = tr("Could not save the mount settings.");
     }
     emit profileChanged();
     emit stateChanged();
+}
 
+void MountClient::restart_hub()
+{
     {
         std::lock_guard<std::mutex> lock(m_device_mutex);
         m_device.clear();

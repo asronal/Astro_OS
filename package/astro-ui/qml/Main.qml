@@ -8,7 +8,8 @@ Window {
 
     property var target: ({})
     property bool solarFilterFitted: false
-    property int page: sky.locationSet ? 0 : 4
+    readonly property int settingsPage: 5
+    property int page: sky.locationSet ? 0 : settingsPage
     readonly property bool skyPage: page === 1
     // Tapping empty sky hides the navigation, for an uninterrupted view
     property bool skyFullView: false
@@ -35,6 +36,7 @@ Window {
     color: theme.background
 
     Binding { target: inputMode; property: "nightPointer"; value: sky.nightMode }
+    Binding { target: camera; property: "nightMode"; value: sky.nightMode }
 
     // These work from anywhere. A text field takes printable keys for itself first, so
     // none of them get in the way of typing.
@@ -44,6 +46,7 @@ Window {
     Shortcut { sequence: "3"; context: Qt.ApplicationShortcut; onActivated: root.page = 2 }
     Shortcut { sequence: "4"; context: Qt.ApplicationShortcut; onActivated: root.page = 3 }
     Shortcut { sequence: "5"; context: Qt.ApplicationShortcut; onActivated: root.page = 4 }
+    Shortcut { sequence: "6"; context: Qt.ApplicationShortcut; onActivated: root.page = root.settingsPage }
     Shortcut { sequence: "N"; context: Qt.ApplicationShortcut; onActivated: sky.nightMode = !sky.nightMode }
     Shortcut { sequences: ["F1", "?", "Shift+?"]; context: Qt.ApplicationShortcut; onActivated: root.helpOpen = !root.helpOpen }
     Shortcut {
@@ -152,7 +155,7 @@ Window {
                     MouseArea {
                         anchors.fill: parent
                         enabled: !sky.clockSet
-                        onClicked: root.page = 4
+                        onClicked: root.page = root.settingsPage
                     }
                     Row {
                         id: statusRow
@@ -232,6 +235,7 @@ Window {
             TonightPage { }
             SkyPage { }
             MountPage { }
+            CameraPage { }
             ToolsPage { }
             SettingsPage { }
         }
@@ -252,6 +256,7 @@ Window {
                     { label: "Tonight", glyph: "moon" },
                     { label: "Sky", glyph: "sky" },
                     { label: "Mount", glyph: "mount" },
+                    { label: "Camera", glyph: "camera" },
                     { label: "Tools", glyph: "tools" },
                     { label: "Settings", glyph: "settings" }
                 ]
@@ -335,9 +340,9 @@ Window {
                     width: parent.width
                     Repeater {
                         model: [
-                            { keys: "Space", does: "STOP the mount" },
+                            { keys: "Space", does: "STOP the mount, not the camera" },
                             { keys: "Arrows", does: "Look around the sky" },
-                            { keys: "1 to 5", does: "Change page" },
+                            { keys: "1 to 6", does: "Change page" },
                             { keys: "+  −  or wheel", does: "Zoom" },
                             { keys: "N", does: "Night mode" },
                             { keys: "Enter", does: "Select what's at the centre" },

@@ -11,6 +11,7 @@ CONFIG="/data/config/astro-hub.conf"
 PIDFILE="/run/astro-hub.pid"
 INDI_PORT="7624"
 DRIVERS="indi_simulator_telescope"
+CAMERA_DRIVER="indi_simulator_ccd"
 REMOTE_ACCESS="no"
 
 [ -f "${CONFIG}" ] && . "${CONFIG}"
@@ -36,7 +37,7 @@ start() {
 	fi
 	# shellcheck disable=SC2086
 	start-stop-daemon -S -b -m -p "${PIDFILE}" -c astro -x /usr/bin/indiserver -- \
-		-p "${INDI_PORT}" -r 2 ${DRIVERS}
+		-p "${INDI_PORT}" -r 2 ${DRIVERS} ${CAMERA_DRIVER}
 	status=$?
 	[ "${status}" -eq 0 ] && echo "OK" || echo "FAIL"
 	return "${status}"

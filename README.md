@@ -120,6 +120,7 @@ Without a Pi, using QEMU:
 | HDMI monitors, including one plugged in after starting | Untested |
 | USB keyboards and mice | Untested |
 | Real mounts, cameras and RC servos | Untested |
+| Downloading pictures over SFTP | Untested |
 
 ### In Development — Astronomy System
 
@@ -131,6 +132,7 @@ Without a Pi, using QEMU:
 - Time preview: see the sky up to 30 days ahead or behind. This only changes what the chart shows, and Sync and GoTo stay off until you return to now
 - Eyepiece rings: enter your telescope and eyepieces to see how much sky each one takes in. The size is the usual estimate, apparent field divided by magnification
 - Mount: choice of 10 mount types through INDI, GoTo, Sync, tracking, parking and manual moves
+- Camera: exposure, ISO or gain, sequences, a stretched preview with a histogram, a focus view at full detail, and saving to `/data/captures`. Works with INDI's camera simulator and its DSLR, mirrorless and webcam drivers, and stops a sequence rather than fill the disk
 - Tools: field of view, image scale, exposure limits and a polar alignment dial
 - Keyboard and mouse as well as touch: every control works with Tab and Enter, the wheel zooms towards the pointer, Space is STOP, and F1 lists the keys
 - Red night mode, including the mouse pointer, and a STOP button on every screen

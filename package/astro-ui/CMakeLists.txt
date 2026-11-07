@@ -12,6 +12,8 @@ find_library(INDICLIENT_LIBRARY indiclient REQUIRED)
 find_path(INDI_INCLUDE_DIR libindi/baseclient.h REQUIRED)
 find_library(TCL_LIBRARY NAMES tcl8.6 tcl REQUIRED)
 find_library(READLINE_LIBRARY readline REQUIRED)
+find_library(CFITSIO_LIBRARY cfitsio REQUIRED)
+find_path(CFITSIO_INCLUDE_DIR fitsio.h PATH_SUFFIXES cfitsio libcfitsio REQUIRED)
 
 qt_add_executable(astro-ui
     src/main.cpp
@@ -21,6 +23,9 @@ qt_add_executable(astro-ui
     src/sky_chart.cpp
     src/mount_client.cpp
     src/input_mode.cpp
+    src/camera_client.cpp
+    src/camera_image.cpp
+    src/camera_view.h
 )
 
 qt_add_resources(astro-ui "qml" PREFIX "/" FILES
@@ -36,6 +41,7 @@ qt_add_resources(astro-ui "qml" PREFIX "/" FILES
     qml/TonightPage.qml
     qml/SkyPage.qml
     qml/MountPage.qml
+    qml/CameraPage.qml
     qml/ToolsPage.qml
     qml/SettingsPage.qml
     data/fonts/IBMPlexSans.ttf
@@ -44,10 +50,10 @@ qt_add_resources(astro-ui "qml" PREFIX "/" FILES
     data/fonts/SpaceGrotesk.ttf
 )
 
-target_include_directories(astro-ui PRIVATE ${INDI_INCLUDE_DIR}/libindi)
+target_include_directories(astro-ui PRIVATE ${INDI_INCLUDE_DIR}/libindi ${CFITSIO_INCLUDE_DIR})
 target_link_libraries(astro-ui PRIVATE
     Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml Qt6::Quick
-    ${ASTRO_CORE_LIBRARY} ${NOVA_LIBRARY} ${INDICLIENT_LIBRARY}
+    ${ASTRO_CORE_LIBRARY} ${NOVA_LIBRARY} ${INDICLIENT_LIBRARY} ${CFITSIO_LIBRARY}
 )
 
 # The interactive shell. It shares the settings and safety checks, but needs no display.
@@ -78,6 +84,10 @@ if(ASTRO_UI_BUILD_TESTS)
     target_link_libraries(test_chart_tap PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml Qt6::Quick
         ${ASTRO_CORE_LIBRARY} ${NOVA_LIBRARY})
 
+    qt_add_executable(test_camera_image tests/test_camera_image.cpp src/camera_image.cpp src/camera_client.cpp)
+    target_include_directories(test_camera_image PRIVATE src ${INDI_INCLUDE_DIR}/libindi ${CFITSIO_INCLUDE_DIR})
+    target_link_libraries(test_camera_image PRIVATE Qt6::Core Qt6::Gui ${CFITSIO_LIBRARY} ${INDICLIENT_LIBRARY})
+
     qt_add_executable(test_auto_detect tests/test_auto_detect.cpp src/auto_detect.cpp)
     target_include_directories(test_auto_detect PRIVATE src)
     target_link_libraries(test_auto_detect PRIVATE Qt6::Core)
@@ -87,13 +97,13 @@ if(ASTRO_UI_BUILD_TESTS)
     target_link_libraries(mount_e2e PRIVATE Qt6::Core Qt6::Network ${ASTRO_CORE_LIBRARY} ${NOVA_LIBRARY} ${INDICLIENT_LIBRARY})
 
     set(ASTRO_UI_TEST_RESOURCES
-        qml/Main.qml qml/AText.qml qml/AstroButton.qml qml/FocusRing.qml qml/Card.qml qml/Glyph.qml qml/Logo.qml qml/MoonDisc.qml qml/PolarDial.qml qml/TonightPage.qml qml/SkyPage.qml qml/MountPage.qml qml/ToolsPage.qml qml/SettingsPage.qml data/fonts/IBMPlexSans.ttf data/fonts/IBMPlexMono-Regular.ttf data/fonts/IBMPlexMono-Medium.ttf data/fonts/SpaceGrotesk.ttf)
+        qml/Main.qml qml/AText.qml qml/AstroButton.qml qml/FocusRing.qml qml/Card.qml qml/Glyph.qml qml/Logo.qml qml/MoonDisc.qml qml/PolarDial.qml qml/TonightPage.qml qml/SkyPage.qml qml/MountPage.qml qml/CameraPage.qml qml/ToolsPage.qml qml/SettingsPage.qml data/fonts/IBMPlexSans.ttf data/fonts/IBMPlexMono-Regular.ttf data/fonts/IBMPlexMono-Medium.ttf data/fonts/SpaceGrotesk.ttf)
     foreach(ui_test ui_screens ui_e2e)
-        qt_add_executable(${ui_test} tests/${ui_test}.cpp src/catalog.cpp src/auto_detect.cpp src/sky_backend.cpp src/sky_chart.cpp src/mount_client.cpp src/input_mode.cpp)
+        qt_add_executable(${ui_test} tests/${ui_test}.cpp src/catalog.cpp src/auto_detect.cpp src/sky_backend.cpp src/sky_chart.cpp src/mount_client.cpp src/input_mode.cpp src/camera_client.cpp src/camera_image.cpp src/camera_view.h)
         qt_add_resources(${ui_test} "qml" PREFIX "/" FILES ${ASTRO_UI_TEST_RESOURCES})
-        target_include_directories(${ui_test} PRIVATE src ${INDI_INCLUDE_DIR}/libindi)
+        target_include_directories(${ui_test} PRIVATE src ${INDI_INCLUDE_DIR}/libindi ${CFITSIO_INCLUDE_DIR})
         # GuiPrivate is for sending real key and wheel events, as a keyboard and mouse do
         target_link_libraries(${ui_test} PRIVATE Qt6::GuiPrivate Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml Qt6::Quick
-            ${ASTRO_CORE_LIBRARY} ${NOVA_LIBRARY} ${INDICLIENT_LIBRARY})
+            ${ASTRO_CORE_LIBRARY} ${NOVA_LIBRARY} ${INDICLIENT_LIBRARY} ${CFITSIO_LIBRARY})
     endforeach()
 endif()

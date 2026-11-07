@@ -542,7 +542,7 @@ Item {
                     visible: sky.telescopeFocalMm <= 0 || sky.eyepieces.length === 0
                     width: parent.width
                     text: "Open Settings"
-                    onClicked: root.page = 4
+                    onClicked: root.page = root.settingsPage
                 }
                 Repeater {
                     model: sky.telescopeFocalMm > 0 ? sky.eyepieces : []

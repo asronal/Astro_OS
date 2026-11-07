@@ -33,6 +33,8 @@ class MountClient : public QObject, public INDI::BaseClient {
     Q_PROPERTY(QString port READ port NOTIFY profileChanged)
     Q_PROPERTY(bool remoteAccess READ remoteAccess NOTIFY profileChanged)
     Q_PROPERTY(QVariantList drivers READ drivers CONSTANT)
+    Q_PROPERTY(QString cameraDriver READ cameraDriver NOTIFY profileChanged)
+    Q_PROPERTY(QVariantList cameraDrivers READ cameraDrivers CONSTANT)
 
 public:
     MountClient(SkyBackend* sky, const QString& hub_config_path, QObject* parent = nullptr);
@@ -54,6 +56,11 @@ public:
     QVariantList drivers() const;
 
     Q_INVOKABLE void applyProfile(const QString& driver, const QString& port, bool remote_access);
+    // Restarts the service that also runs the mount's driver, so it's refused while a
+    // mount is connected. Returns an empty string if it worked.
+    Q_INVOKABLE QString applyCameraDriver(const QString& driver);
+    QString cameraDriver() const { return m_camera_driver; }
+    QVariantList cameraDrivers() const;
     Q_INVOKABLE void connectMount();
     Q_INVOKABLE void disconnectMount();
     // Returns an empty string if accepted, otherwise why the slew was refused
@@ -83,6 +90,8 @@ private:
     void send_location_and_time();
     void try_connect_to_server();
     void load_profile();
+    void save_profile();
+    void restart_hub();
     void select_switch(const char* property_name, const char* element_name);
     bool send_position(const char* mode, double ra_deg, double dec_deg);
     std::string device_name() const;
@@ -98,6 +107,7 @@ private:
     QString m_message;
     QString m_driver;
     QString m_port;
+    QString m_camera_driver;
     bool m_remote_access;
     bool m_server_up;
     bool m_connected;

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Runs an ARM test program on this PC with a fresh INDI telescope simulator behind it,
+# Runs an ARM test program on this PC with fresh INDI telescope and camera simulators behind it,
 # as the mount tests need one that starts out disconnected. Emulation, not hardware.
 #
 #   tools/with-simulator.sh /tmp/uitest/mount_e2e
@@ -23,22 +23,26 @@ fi
 
 STATE_DIR="$(mktemp -d)"
 mkdir -p "${STATE_DIR}/drivers"
-cat > "${STATE_DIR}/drivers/indi_simulator_telescope" <<WRAPPER
+for driver in indi_simulator_telescope indi_simulator_ccd; do
+	cat > "${STATE_DIR}/drivers/${driver}" <<WRAPPER
 #!/bin/sh
-echo \$\$ > "${STATE_DIR}/driver.pid"
-exec "${QEMU}" -L "${TARGET}" "${TARGET}/usr/bin/indi_simulator_telescope" "\$@"
+echo \$\$ > "${STATE_DIR}/${driver}.pid"
+exec "${QEMU}" -L "${TARGET}" "${TARGET}/usr/bin/${driver}" "\$@"
 WRAPPER
-chmod +x "${STATE_DIR}/drivers/indi_simulator_telescope"
+	chmod +x "${STATE_DIR}/drivers/${driver}"
+done
 
 export HOME="${STATE_DIR}"
 export PATH="${STATE_DIR}/drivers:${PATH}"
-"${QEMU}" -L "${TARGET}" "${TARGET}/usr/bin/indiserver" -p "${INDI_PORT}" -r 0 indi_simulator_telescope \
+"${QEMU}" -L "${TARGET}" "${TARGET}/usr/bin/indiserver" -p "${INDI_PORT}" -r 0 indi_simulator_telescope indi_simulator_ccd \
 	> "${STATE_DIR}/indiserver.log" 2>&1 &
 SERVER=$!
 
 stop_simulator() {
 	kill "${SERVER}" 2> /dev/null
-	[ -f "${STATE_DIR}/driver.pid" ] && kill "$(cat "${STATE_DIR}/driver.pid")" 2> /dev/null
+	for pid in "${STATE_DIR}"/*.pid; do
+		[ -f "${pid}" ] && kill "$(cat "${pid}")" 2> /dev/null
+	done
 	rm -rf "${STATE_DIR}"
 }
 trap stop_simulator EXIT

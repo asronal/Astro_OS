@@ -4,6 +4,8 @@
 #include <QQuickWindow>
 #include <QtQml>
 
+#include "camera_client.h"
+#include "camera_view.h"
 #include "input_mode.h"
 #include "mount_client.h"
 #include "sky_backend.h"
@@ -23,14 +25,17 @@ int main(int argc, char *argv[])
     MountClient mount(&sky, config_dir + QStringLiteral("/astro-hub.conf"));
     sky.startAutoDetect();
     InputMode input_mode;
+    CameraClient camera(qEnvironmentVariable("ASTRO_CAPTURE_DIR", QStringLiteral("/data/captures")));
 
     qmlRegisterType<SkyChart>("Astro", 1, 0, "SkyChart");
+    qmlRegisterType<CameraView>("Astro", 1, 0, "CameraView");
     qmlRegisterUncreatableType<SkyBackend>("Astro", 1, 0, "SkyBackend", QStringLiteral("Use the sky object"));
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("sky"), &sky);
     engine.rootContext()->setContextProperty(QStringLiteral("mount"), &mount);
     engine.rootContext()->setContextProperty(QStringLiteral("inputMode"), &input_mode);
+    engine.rootContext()->setContextProperty(QStringLiteral("camera"), &camera);
     // For trying the app in a window on a PC
     engine.rootContext()->setContextProperty(QStringLiteral("runWindowed"), qEnvironmentVariableIsSet("ASTRO_WINDOWED"));
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
